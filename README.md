@@ -1,13 +1,13 @@
-# Cuenta clara · versión 1.1 (desarrollo)
+# Cuenta clara · versión 1.2 (desarrollo)
 
-Calculadora estática de cobros MXN/USD. Conserva precios dinámicos, total, pagos en una sola moneda, cambio y faltantes en pesos, tasa automática/manual y nueva cuenta. No registra ventas ni incluye inventario, usuarios, teclado integrado o resumen del cobro.
+Calculadora estática de cobros MXN/USD. Conserva precios dinámicos, total, pagos en una sola moneda, cambio y faltantes en pesos, tasa automática/manual y nueva cuenta. No registra ventas ni incluye inventario o usuarios.
 
 ## Probar sin reemplazar la versión pública
 
 Esta versión pertenece a `feature/version-1.1`. No fusionar con `main` sin autorización. GitHub Pages continúa sirviendo `main`.
 
 ```sh
-git clone --branch feature/version-1.1 https://github.com/glezeddy/calculadora-mxn-usd.git
+git clone --branch feature/version-1.2 https://github.com/glezeddy/calculadora-mxn-usd.git
 cd calculadora-mxn-usd
 npm ci
 npm run dev
@@ -49,3 +49,17 @@ La prueba de actualización sirve temporalmente un worker `1.1.1-test` desde mem
 ## Publicación futura
 
 Solo tras autorización: fusionar la rama a `main`. Pages ya está configurado desde la raíz de `main`; no cambiar esa configuración para probar esta rama. Las rutas del manifest, módulos e iconos son relativas y el scope del worker permanece dentro de `/calculadora-mxn-usd/`.
+
+## Versión 1.2 en desarrollo
+
+La rama `feature/version-1.2`, creada desde `main` v1.1, incorpora únicamente teclado numérico integrado y resumen del cobro con copia. No se debe fusionar a producción sin autorización.
+
+El teclado aparece al seleccionar un precio o un importe recibido MXN/USD, dentro del flujo de ese campo y sin superposición. Incluye 0–9, punto, borrar último dígito/selección y limpiar. Edita la posición o selección actual, con hasta 10 dígitos enteros y 2 decimales. Se conserva el teclado físico, validación y billetes. La tasa manual conserva su entrada habitual de hasta 10 decimales.
+
+El resumen se recalcula con los mismos importes y redondeos de la operación actual. Muestra únicamente monedas aplicables, tasa y estado cuando corresponde. Entradas incompletas o inválidas deshabilitan la copia y retiran los resultados anteriores. No almacena ni envía la operación; el texto se escribe solo al portapapeles local cuando se pulsa Copiar resumen. Si el navegador lo bloquea, ofrece un cuadro de texto seleccionable para copiar manualmente. Funciona offline tras la primera carga completa.
+
+Caché PWA `1.2.0`: incluye `keypad.js` y `summary.js`. Las pruebas integrales incluyen migración real desde los archivos de la etiqueta `v1.1.0`, espera de actualización y limpieza de caché anterior.
+
+Entorno de pruebas: https://glezeddy.github.io/calculadora-mxn-usd-pruebas/ (rama `feature/version-1.2` del repositorio de pruebas). La etiqueta `v1.1-pruebas` conserva exactamente el commit anterior `37f1fa0fdf971b27815d6be2dd5c98da814a4b32`; se puede recuperar configurando Pages de ese repositorio desde `feature/version-1.1`, que se conserva. No cambiar Pages del repositorio principal.
+
+Las pruebas v1.2 requieren disponer de la etiqueta `v1.1.0` (`git fetch origin --tags`). Ejecuta `npm test` y `npm run test:browser`. El servidor local sigue disponible con `npm run dev`.

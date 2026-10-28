@@ -1,0 +1,56 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {createServer,BASE} from '../scripts/server.js';
+import {existsSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeout:120000},async()=>{
+  let legacy=true;
+  const server=createServer((file,data)=>legacy?execFileSync('git',['show',`v1.1.0:${file}`]):data);
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+  const browser=await chromium.launch({headless:true,...(existsSync(edge)?{executablePath:edge}:{})});
+  try{
+    const origin=`http://localhost:${server.address().port}`;
+    const context=await browser.newContext({permissions:['clipboard-read','clipboard-write']});
+    await context.route('https://api.frankfurter.dev/**',r=>r.fulfill({json:{date:new Date().toISOString().slice(0,10),base:'USD',quote:'MXN',rate:18}}));
+    const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.goto(origin+BASE);await page.evaluate(()=>navigator.serviceWorker.ready);
+    await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
+    legacy=false;await page.evaluate(async()=>{await(await navigator.serviceWorker.getRegistration()).update();});
+    await page.locator('#pwa-update').waitFor({state:'visible'});await page.locator('#apply-update').click();
+    await page.locator('#summary-title').waitFor();
+    await page.waitForFunction(async()=>!(await caches.keys()).some(k=>k.endsWith(':1.1.0')));
+    const key=k=>page.locator(`#keypad button[data-key="${k}"]`).click();
+    await page.locator('#prices input').focus();
+    for(const k of ['3','5','0','.','0','5','9'])await key(k);
+    assert.equal(await page.locator('#prices input').inputValue(),'350.05');
+    await key('backspace');assert.equal(await page.locator('#prices input').inputValue(),'350.0');
+    await key('5');await page.locator('#add').click();await key('1');
+    assert.equal(await page.locator('#prices input').nth(1).inputValue(),'1');
+    await page.locator('.remove').nth(1).click();
+    await page.locator('input[value=combined]').check();await page.locator('#rate-mode').selectOption('manual');await page.locator('#manual-rate').fill('18');
+    await page.locator('#received-mxn').focus();for(const k of ['2','0','0','.','1','0'])await key(k);
+    await page.locator('#received-usd').focus();for(const k of ['8','.','3','3'])await key(k);
+    assert.match(await page.locator('#summary-values').textContent(),/Cantidad faltante\$0.01 MXN/);
+    await page.getByRole('button',{name:'Agregar 1 USD',exact:true}).click();
+    assert.equal(await page.locator('#received-usd').inputValue(),'9.33');
+    assert.equal(await page.locator('#received-mxn').inputValue(),'200.10');
+    await page.locator('#copy-summary').click();
+    let copied=await page.evaluate(()=>navigator.clipboard.readText());
+    assert.match(copied,/Cambio a entregar: \$17.99 MXN/);
+    await page.locator('#received-usd').fill('-1');assert.ok(await page.locator('#copy-summary').isDisabled());
+    assert.equal(await page.locator('#summary-values').textContent(),'');
+    await page.locator('#received-usd').focus();await key('clear');await key('1');
+    await page.locator('#received-usd').press('End');await page.locator('#received-usd').press('0');
+    assert.equal(await page.locator('#received-usd').inputValue(),'10');
+    for(const width of [360,390,768,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.ok(await page.locator('#keypad button').first().evaluate(e=>e.getBoundingClientRect().height>=44));await page.screenshot({path:`test-results/v12-${width}.png`,fullPage:true});}
+    await context.setOffline(true);await page.reload();await page.locator('#prices input').focus();for(const k of ['1','0'])await key(k);
+    await page.locator('#received-mxn').focus();for(const k of ['2','0'])await key(k);
+    await page.locator('#copy-summary').click();copied=await page.evaluate(()=>navigator.clipboard.readText());assert.match(copied,/Cambio a entregar: \$10.00 MXN/);
+    await page.evaluate(()=>{navigator.clipboard.writeText=async()=>{throw Error('Bloqueado');};});
+    await page.locator('#copy-summary').click();assert.ok(await page.locator('#copy-text').isVisible());assert.match(await page.locator('#copy-text').inputValue(),/Pago completo/);
+    await page.locator('#reset').click();assert.ok(await page.locator('#copy-summary').isDisabled());assert.ok(await page.locator('#copy-fallback').isHidden());
+    assert.deepEqual(errors,[]);
+  }finally{await browser.close();await new Promise(r=>server.close(r));}
+});

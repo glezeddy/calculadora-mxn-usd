@@ -1,6 +1,9 @@
 import { decimal, rateFraction, totalUSD, money, addBill, receivedMXN } from './money.js';
 import { fetchRate } from './rates.js';
 import { loadRate, saveRate } from './rate-store.js';
+import { setupKeypad } from './keypad.js';
+import { buildSummary, renderSummary } from './summary.js';
+let summary = null;
 const $ = id => document.getElementById(id);
 let sequence = 0;
 let automatic = null;
@@ -76,6 +79,8 @@ function render() {
   const badge = mode() === 'manual' ? 'Manual' : mode() === 'saved' ? 'Referencia anterior' : 'Automático';
   $('rate-badge').textContent = badge;
   const value = mode() === 'manual' ? $('manual-rate').value.trim().replace(',', '.') : currentRecord()?.value;
+  summary = buildSummary({ ready, total: invalid ? null : total, currency: currency(), mxn: decimal($('received-mxn').value) ?? 0n, usd: decimal($('received-usd').value) ?? 0n, converted, rateDescription: `${badge} · 1 USD = $${value} MXN${currentRecord() && mode() !== 'manual' ? ` · referencia ${currentRecord().date} · consulta ${formatDate(currentRecord().fetchedAt)}` : ''}` });
+  renderSummary(summary);
   $('rate-value').textContent = rate ? `1 USD = $${value} MXN` : loading && mode() === 'auto' ? 'Consultando…' : 'Tasa no disponible';
   $('rate-status').textContent = mode() === 'manual' ? rate ? 'Se está usando la tasa de tu negocio.' : 'Introduce una tasa manual válida mayor que cero.' : mode() === 'saved' ? rate ? 'Usas explícitamente una referencia anterior. No es una cotización actual.' : 'No hay una referencia anterior válida seleccionada.' : loading ? 'Consultando la cotización diaria…' : failure || (automatic ? 'Referencia diaria de Frankfurter. Puede corresponder al último día hábil.' : 'Actualiza la cotización o selecciona una tasa manual o anterior.');
   $('rate-status').classList.toggle('error', mode() === 'auto' && Boolean(failure));
@@ -137,6 +142,21 @@ window.addEventListener('offline', () => {
   render();
 });
 window.addEventListener('online', () => { render(); refresh(); });
+setupKeypad();
+$('copy-summary').addEventListener('click', async () => {
+  if (!summary) return;
+  const text = summary.text;
+  try {
+    await navigator.clipboard.writeText(text);
+    $('copy-status').textContent = summary?.text === text ? 'Resumen copiado.' : 'La operación cambió. Copia nuevamente el resumen actualizado.';
+  } catch {
+    if (summary?.text !== text) return;
+    $('copy-fallback').hidden = false;
+    $('copy-text').value = text;
+    $('copy-text').focus(); $('copy-text').select();
+    $('copy-status').textContent = 'El navegador no permitió copiar. Puedes copiar manualmente el texto seleccionado.';
+  }
+});
 addPrice(false);
 if (online()) refresh();
 else { failure = 'Sin conexión. Selecciona explícitamente una referencia anterior o introduce una tasa manual.'; render(); }
