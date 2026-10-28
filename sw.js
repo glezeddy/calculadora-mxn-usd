@@ -1,8 +1,8 @@
 // Cambiar VERSION en cada entrega que cambie cualquier archivo de SHELL.
-const VERSION = '1.3.0-dev.1';
+const VERSION = '1.4.0-dev.1';
 const PREFIX = `cuenta-clara:${self.registration.scope}:`;
 const CACHE = `${PREFIX}${VERSION}`;
-const SHELL = ['./', './index.html', './styles.css', './app.js', './money.js', './rates.js', './rate-store.js', './pwa.js', './keypad.js', './summary.js', './icons.js', './ui.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
+const SHELL = ['./', './index.html', './styles.css', './app.js', './money.js', './rates.js', './rate-store.js', './pwa.js', './keypad.js', './summary.js', './icons.js', './ui.js', './change-engine.js', './cash-ledger.js', './cash-ui.js', './change-worker.js', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 const urls = SHELL.map(path => new URL(path, self.registration.scope).href);
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(urls.map(url => new Request(url, { cache: 'reload' })))));

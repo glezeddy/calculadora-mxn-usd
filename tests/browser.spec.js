@@ -5,7 +5,7 @@ import { createServer, BASE } from '../scripts/server.js';
 import { existsSync } from 'node:fs';
 test('interfaz, pagos, PWA offline y actualización real de caché', {timeout:120000}, async () => {
   let nextVersion = false;
-  const server = createServer((file,data) => nextVersion && file === 'sw.js' ? data.toString().replace("'1.3.0-dev.1'", "'1.3.0-test'") : data);
+  const server = createServer((file,data) => nextVersion && file === 'sw.js' ? data.toString().replace("'1.4.0-dev.1'", "'1.4.0-test'") : data);
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
   const browser=await chromium.launch({headless:true,...(existsSync(edge)?{executablePath:edge}:{})});
@@ -38,7 +38,7 @@ test('interfaz, pagos, PWA offline y actualización real de caché', {timeout:12
     assert.match(await page.locator('#change-label').textContent(),/Falta/);
     await page.locator('#rate-mode').selectOption('manual');await page.locator('#manual-rate').fill('0');
     assert.equal(await page.locator('#change').textContent(),'—');
-    await page.locator('#manual-rate').fill('18');await page.locator('#reset').click();
+    await page.locator('#manual-rate').fill('18');await page.locator('#reset').click();await page.locator('#physical-discard').check();await page.getByRole('button',{name:'Descartar cuenta',exact:true}).click();await page.locator('#cash-dialog').waitFor({state:'hidden'});
     assert.equal(await page.locator('#manual-rate').inputValue(),'18');
     assert.equal(await page.locator('#received-mxn').inputValue(),'');
     await page.locator('#prices input').fill('350');
@@ -76,10 +76,10 @@ test('interfaz, pagos, PWA offline y actualización real de caché', {timeout:12
     await page.locator('#pwa-update').waitFor({state:'visible'});
     assert.equal(await page.locator('#change').textContent(),'$50.00 MXN');
     await page.locator('#apply-update').click();
-    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('1.3.0-test')) && !(await caches.keys()).some(k=>k.endsWith(':1.3.0-dev.1')));
-    await page.waitForFunction(()=>document.querySelector('#prices input')?.value==='');
+    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('1.4.0-test')) && !(await caches.keys()).some(k=>k.endsWith(':1.4.0-dev.1')));
+    await page.waitForFunction(()=>document.querySelector('#prices input')?.value==='350');
     assert.ok((await page.evaluate(()=>caches.keys())).includes('unrelated-app'));
-    const cacheURLs=await page.evaluate(async()=>{const keys=await caches.keys();const c=await caches.open(keys.find(k=>k.endsWith('1.3.0-test')));return(await c.keys()).map(r=>r.url);});
+    const cacheURLs=await page.evaluate(async()=>{const keys=await caches.keys();const c=await caches.open(keys.find(k=>k.endsWith('1.4.0-test')));return(await c.keys()).map(r=>r.url);});
     assert.ok(cacheURLs.every(u=>u.startsWith(url)));
     assert.ok(!cacheURLs.some(u=>u.includes('frankfurter')));
     assert.deepEqual(errors,[]);

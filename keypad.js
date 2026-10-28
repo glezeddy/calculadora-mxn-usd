@@ -69,6 +69,7 @@ export function setupKeypad() {
     target.dispatchEvent(new Event('input', { bubbles: true }));
   });
   document.querySelectorAll('input[name=currency]').forEach(input => input.addEventListener('change', () => { close(); target = null; }));
+  document.addEventListener('cash-lock', () => { close(); target = null; });
   // Si se elimina el precio que contiene el panel, se recupera para el siguiente campo.
   new MutationObserver(() => { if (!panel.isConnected) { document.querySelector('main').append(panel); panel.hidden = true; target = null; } }).observe(document.getElementById('prices'), {childList:true,subtree:true});
 }

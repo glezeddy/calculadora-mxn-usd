@@ -55,11 +55,11 @@ test('recibido confirmado está disponible provisionalmente y se contabiliza sol
 test('combinado: recibido USD solo a USD y cambio solo MXN',()=>{
  const f=form({prices:['350.05'],mxn:'200.10',usd:'10',currency:'combined'});let s=prepared(f);
  // Recontar inventario físicamente a las piezas exactas de cambio, antes de confirmar recibido.
- s=reduceSession(s,{type:'verify',currency:'MXN',counts:{2000:1,500:1,200:2,50:1,20:2,10:1},confirm:true});
+ s=reduceSession(s,{type:'draft',form:form({mxn:''})});s=reduceSession(s,{type:'verify',currency:'MXN',counts:{2000:1,500:1,200:2,50:1,20:2,10:1},confirm:true});s=reduceSession(s,{type:'draft',form:f});
  // 30.05 MXN no tiene combinación de monedas MXN: no se inventa ni redondea.
  assert.equal(combination(3005n,'MXN'),null);
  assert.throws(()=>reduceSession(s,{type:'finish',context:context(f),received:{MXN:{20000:1,10:1},USD:{1000:1}},receivedPhysical:true,dispensed:{2000:1,1000:1},dispensedPhysical:true}));
- const f2=form({prices:['350'],mxn:'200',usd:'10',currency:'combined'});s=reduceSession(s,{type:'draft',form:f2});s=reduceSession(s,{type:'verify',currency:'MXN',counts:{2000:1,1000:1},confirm:true});
+ const f2=form({prices:['350'],mxn:'200',usd:'10',currency:'combined'});s=reduceSession(s,{type:'draft',form:form({mxn:''})});s=reduceSession(s,{type:'verify',currency:'MXN',counts:{2000:1,1000:1},confirm:true});s=reduceSession(s,{type:'draft',form:f2});
  s=reduceSession(s,{type:'finish',context:context(f2),received:{MXN:{20000:1},USD:{1000:1}},receivedPhysical:true,dispensed:{2000:1,1000:1},dispensedPhysical:true});
  assert.equal(s.cash.USD.counts[1000],1);assert.equal(s.cash.MXN.counts[20000],1);assert.equal(s.cash.MXN.counts[2000],0);
 });
@@ -69,7 +69,7 @@ test('finalizar incompleto suspende solo monedas afectadas y se puede deshacer f
  s=reduceSession(s,{type:'undo',confirm:true});assert.equal(s.cash.USD.status,'verified');
 });
 test('jornada nunca verifica automáticamente y confirmación/cancelación no mutan parcialmente',()=>{
- let s=prepared();const before=JSON.stringify(s);
+ let s=prepared(form({mxn:''}));const before=JSON.stringify(s);
  assert.throws(()=>reduceSession(s,{type:'day',mode:'zero',confirm:false}));assert.equal(JSON.stringify(s),before);
  s=reduceSession(s,{type:'day',mode:'keep',confirm:true});assert.equal(s.cash.MXN.status,'pending');assert.equal(s.cash.USD.status,'pending');assert.equal(s.cash.MXN.counts[20000],1);
  s=reduceSession(s,{type:'day',mode:'zero',confirm:true});assert.equal(s.cash.MXN.status,'unverified');assert.equal(totalCounts('MXN',s.cash.MXN.counts),0n);
@@ -77,7 +77,12 @@ test('jornada nunca verifica automáticamente y confirmación/cancelación no mu
 test('deshacer persiste, se invalida por conteo y el siguiente movimiento reemplaza al anterior',()=>{
  const f=form({prices:['500'],mxn:'500'});let s=prepared(f);
  s=reduceSession(s,{type:'finish',context:context(f),received:{MXN:{50000:1}},receivedPhysical:true,dispensed:{},dispensedPhysical:true});
- assert.ok(validateCash(s.cash).lastMovement);s=reduceSession(s,{type:'verify',currency:'USD',counts:{},confirm:true});assert.equal(s.cash.lastMovement,null);
+ assert.ok(validateCash(s.cash).lastMovement);
+ const second=form({prices:['200'],mxn:'200'});s=reduceSession(s,{type:'draft',form:second});
+ s=reduceSession(s,{type:'finish',context:context(second),received:{MXN:{20000:1}},receivedPhysical:true,dispensed:{},dispensedPhysical:true});
+ assert.equal(s.cash.MXN.counts[20000],2);s=reduceSession(s,{type:'undo',confirm:true});
+ assert.equal(s.cash.MXN.counts[50000],1);assert.equal(s.cash.MXN.counts[20000],1);
+ s=reduceSession(s,{type:'verify',currency:'USD',counts:{},confirm:true});assert.equal(s.cash.lastMovement,null);
 });
 const locks={request:async(_name,fn)=>fn()};
 test('persistencia única, fallo de escritura deja caja intacta y revisión evita otra pestaña',async()=>{
@@ -92,4 +97,24 @@ test('almacenamiento corrupto o bloqueo no disponible no reinicia ni permite esc
  assert.throws(()=>new CashStore({getItem:()=>'{'},'test',locks));let writes=0;
  const s=new CashStore({getItem:()=>null,setItem:()=>writes++},'test',null);
  await assert.rejects(s.dispatch({type:'verify',currency:'MXN',counts:{},confirm:true}));assert.equal(writes,0);
+});
+
+test('no recontar ni iniciar jornada con dinero de una cuenta por resolver',()=>{
+ const s=prepared();const before=JSON.stringify(s);
+ assert.throws(()=>reduceSession(s,{type:'verify',currency:'MXN',counts:{50000:1},confirm:true}),/pendiente/);
+ assert.throws(()=>reduceSession(s,{type:'day',mode:'keep',confirm:true}),/pendiente/);assert.equal(JSON.stringify(s),before);
+});
+test('descartar un ajuste exige devolución y no altera el efectivo registrado',()=>{
+ let s=prepared();s=reduceSession(s,{type:'extra',context:context(form()),value:'70',counts:{5000:1,2000:1},confirm:true});const before=JSON.stringify(s.cash);
+ assert.throws(()=>reduceSession(s,{type:'discard',returned:false}));s=reduceSession(s,{type:'discard',returned:true});assert.equal(s.pending.lock,null);assert.equal(s.draft,null);assert.equal(JSON.stringify(s.cash),before);
+});
+test('límite automático configurable sin truncarlo silenciosamente',()=>{
+ const counts={100000:1};assert.equal(extraSuggestion(23000n,counts,10000n),null);assert.equal(extraSuggestion(23000n,counts,100000n).extra,77000n);
+ const s=reduceSession(initialSession(),{type:'limit',value:'1500.00'});assert.equal(s.maxExtra,'1500.00');assert.throws(()=>reduceSession(s,{type:'limit',value:'-1'}));
+});
+
+test('recuperación explícita tras fallo reemplaza conteos sin repetir entradas o salidas',()=>{
+ let s=prepared();s=reduceSession(s,{type:'extra',context:context(form()),value:'70',counts:{5000:1,2000:1},confirm:true});
+ assert.throws(()=>reduceSession(s,{type:'recover',counts:{MXN:{50000:1},USD:{}},confirm:false}));
+ s=reduceSession(s,{type:'recover',counts:{MXN:{50000:1,5000:1,2000:1},USD:{}},confirm:true});assert.equal(s.pending.extra,null);assert.equal(s.draft,null);assert.equal(s.cash.MXN.counts[50000],1);assert.equal(s.cash.MXN.counts[5000],1);assert.equal(s.cash.MXN.status,'verified');assert.equal(s.cash.lastMovement,null);
 });

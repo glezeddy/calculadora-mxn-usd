@@ -46,12 +46,12 @@ test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeou
     await page.locator('#received-usd').press('End');await page.locator('#received-usd').press('0');
     assert.equal(await page.locator('#received-usd').inputValue(),'10');
     for(const width of [360,390,768,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.ok(await page.locator('#keypad button').first().evaluate(e=>e.getBoundingClientRect().height>=44));await page.screenshot({path:`test-results/v12-${width}.png`,fullPage:true});}
-    await context.setOffline(true);await page.reload();await page.locator('#prices input').focus();for(const k of ['1','0'])await key(k);
+    await context.setOffline(true);await page.reload();await page.locator('#reset').click();await page.locator('#physical-discard').check();await page.getByRole('button',{name:'Descartar cuenta',exact:true}).click();await page.locator('#cash-dialog').waitFor({state:'hidden'});await page.locator('#prices input').focus();for(const k of ['1','0'])await key(k);
     await page.locator('#received-mxn').focus();for(const k of ['2','0'])await key(k);
     await page.locator('#summary-toggle').click();await page.locator('#copy-summary').click();copied=await page.evaluate(()=>navigator.clipboard.readText());assert.match(copied,/Cambio a entregar: \$10.00 MXN/);
     await page.evaluate(()=>{navigator.clipboard.writeText=async()=>{throw Error('Bloqueado');};});
     await page.locator('#copy-summary').click();assert.ok(await page.locator('#copy-text').isVisible());assert.match(await page.locator('#copy-text').inputValue(),/Pago completo/);
-    await page.locator('#reset').click();assert.ok(await page.locator('#copy-summary').isDisabled());assert.ok(await page.locator('#copy-fallback').isHidden());
+    await page.locator('#reset').click();await page.locator('#physical-discard').check();await page.getByRole('button',{name:'Descartar cuenta',exact:true}).click();await page.locator('#cash-dialog').waitFor({state:'hidden'});assert.ok(await page.locator('#copy-summary').isDisabled());assert.ok(await page.locator('#copy-fallback').isHidden());
     assert.deepEqual(errors,[]);
   }finally{await browser.close();await new Promise(r=>server.close(r));}
 });

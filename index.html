@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101827">
   <meta name="color-scheme" content="dark">
-  <title>Cuenta clara · v1.3 en desarrollo</title>
+  <title>Cuenta clara · v1.4 · Cambio inteligente en desarrollo</title>
   <link rel="stylesheet" href="./styles.css">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
@@ -16,8 +16,8 @@
 <body>
   <main>
     <header class="page-header"><div><span class="eyebrow">CALCULADORA MXN / USD</span><h1>Cuenta clara<span>.</span></h1><p>Cobra fácil. Entrega el cambio exacto.</p></div><button id="reset" class="secondary"><span data-icon="reset"></span>Nueva cuenta</button></header>
-    <div class="app-state"><span class="development">v1.3 · En desarrollo · Pruebas</span><span id="connection" role="status"></span><button id="install" hidden>Instalar aplicación</button></div>
-    <div id="pwa-update" class="notice" hidden><p>Hay una nueva versión lista. Aplicarla recarga la página y limpia la cuenta actual.</p><button id="apply-update">Actualizar aplicación</button></div>
+    <div class="app-state"><span class="development">v1.4 · Cambio inteligente · En desarrollo · Pruebas</span><span id="connection" role="status"></span><button id="install" hidden>Instalar aplicación</button></div>
+    <div id="pwa-update" class="notice" hidden><p>Hay una nueva versión lista. Aplicarla recarga la página y conserva la cuenta y movimientos guardados en este dispositivo.</p><button id="apply-update">Actualizar aplicación</button></div>
     <p id="pwa-status" class="metadata" role="status"></p>
     <div class="layout">
       <section class="card prices" aria-labelledby="prices-title">
@@ -36,7 +36,7 @@
         <div id="mxn-box" class="received-box"><label for="received-mxn">Dinero recibido <span class="unit">MXN</span></label><div class="amount-control"><input id="received-mxn" type="text" inputmode="none" placeholder="0.00" autocomplete="off" aria-describedby="mxn-error"><button class="keypad-toggle" data-input="received-mxn" aria-label="Abrir teclado para dinero recibido en MXN" aria-controls="keypad" aria-expanded="false"><span data-icon="keyboard"></span></button></div><div id="mxn-bills" class="bills" role="group" aria-label="Agregar billetes en MXN"></div><button id="clear-mxn" class="clear"><span data-icon="clear"></span>Limpiar MXN</button><p id="mxn-error" class="error" role="status"></p></div>
         <div id="usd-box" class="received-box" hidden><label for="received-usd">Dinero recibido <span class="unit">USD</span></label><div class="amount-control"><input id="received-usd" type="text" inputmode="none" placeholder="0.00" autocomplete="off" aria-describedby="usd-error"><button class="keypad-toggle" data-input="received-usd" aria-label="Abrir teclado para dinero recibido en USD" aria-controls="keypad" aria-expanded="false"><span data-icon="keyboard"></span></button></div><div id="usd-bills" class="bills" role="group" aria-label="Agregar billetes en USD"></div><button id="clear-usd" class="clear"><span data-icon="clear"></span>Limpiar USD</button><p id="usd-error" class="error" role="status"></p></div>
         <p id="converted" class="muted"></p>
-        <div class="change neutral" aria-live="polite"><div class="result-heading"><span id="result-icon" data-icon="info"></span><span id="result-state">Por completar</span></div><span id="change-label">Cambio en pesos</span><strong id="change">—</strong><small id="change-note">Introduce los precios y el dinero recibido.</small></div>
+        <p id="cash-banner" class="notice" role="status" hidden></p><div class="change neutral" aria-live="polite"><div class="result-heading"><span id="result-icon" data-icon="info"></span><span id="result-state">Por completar</span></div><span id="change-label">Cambio en pesos</span><strong id="change">—</strong><small id="change-note">Introduce los precios y el dinero recibido.</small></div>
       </section>
       <section class="card exchange" aria-labelledby="exchange-title">
         <div class="exchange-top"><div class="section-heading"><span class="step">03</span><h2 id="exchange-title">Tipo de cambio</h2></div><span id="rate-badge" class="badge">Automático</span></div>
@@ -47,9 +47,25 @@
         <p class="footnote"><span data-icon="info"></span>La cotización automática es una referencia diaria, no una tasa en tiempo real. El cambio siempre se entrega en MXN.</p>
       </section>
     </div>
+    <section class="card cash-section" aria-labelledby="cash-title">
+      <div class="section-heading"><span class="step">04</span><h2 id="cash-title">Cambio inteligente</h2></div>
+      <p class="muted">Cambio exacto en MXN. Solo se registra efectivo tras confirmar lo recibido y lo entregado físicamente.</p>
+      <p id="cash-error" class="error" role="alert"></p><button id="cash-recover" hidden>Recuperar tras fallo</button>
+      <div class="cash-actions"><button id="prepare-change" aria-controls="cash-tools" aria-expanded="false">Preparar cambio</button><button id="cash-receive" class="secondary">Registrar recibido</button><button id="cash-finish">Finalizar cobro</button></div>
+      <p id="cash-pending" class="metadata" role="status"></p>
+      <div id="cash-tools" hidden>
+        <label for="combination-mode">Tipo de combinación</label><select id="combination-mode"><option value="general">General · sin comprobar disponibilidad</option><option value="available" id="cash-available-option" disabled>Según efectivo MXN verificado</option></select>
+        <p id="cash-stock-note" class="metadata"></p><p id="combination-status" class="muted" role="status"></p>
+        <label for="combination-choice">Alternativas exactas</label><select id="combination-choice" disabled></select>
+        <div id="denomination-board" class="denomination-board" aria-label="Piezas necesarias para el cambio"></div><p id="combination-total" class="count-total" aria-live="polite"></p>
+        <div class="adjustment"><h3>Ajustar cambio</h3><label for="cash-limit">Máximo automático adicional (MXN)</label><input id="cash-limit" type="text" inputmode="decimal" value="100.00"><p id="cash-suggestion" class="muted" role="status"></p><div class="cash-actions"><button id="cash-adjust">Ajuste automático o manual</button><button id="cash-cancel-extra" class="secondary" hidden>Cancelar adicional recibido</button></div></div>
+      </div>
+      <details id="cash-management"><summary>Administrar y verificar mi efectivo</summary><p class="metadata">Solo cantidades por denominación, durante la jornada. Sin historial de ventas. Los cambios pendientes se resuelven antes de un conteo.</p><div class="cash-balances"><div><h3>Efectivo MXN</h3><p id="cash-status-MXN" class="badge"></p><strong id="cash-total-MXN"></strong><button id="cash-verify-mxn" class="secondary">Verificar MXN</button></div><div><h3>Efectivo USD</h3><p id="cash-status-USD" class="badge"></p><strong id="cash-total-USD"></strong><button id="cash-verify-usd" class="secondary">Verificar USD</button></div></div><div class="cash-actions"><button id="cash-day" class="secondary">Nueva jornada</button><button id="cash-undo" class="secondary" disabled>Deshacer último movimiento</button></div></details>
+    </section>
+    <dialog id="cash-dialog" aria-labelledby="cash-dialog-title"></dialog>
     <section class="card summary" aria-labelledby="summary-title"><button id="summary-toggle" class="disclosure" aria-controls="summary-panel" aria-expanded="false"><span data-icon="receipt"></span><span id="summary-title">Resumen del cobro</span><span data-icon="chevron" class="chevron"></span></button><div id="summary-panel" hidden><p id="summary-empty" class="muted">Completa una operación válida para ver y copiar el resumen.</p><dl id="summary-values"></dl><button id="copy-summary" disabled><span data-icon="copy"></span>Copiar resumen</button><p id="copy-status" role="status" class="muted"></p><div id="copy-fallback" hidden><label for="copy-text">Resumen para copiar manualmente</label><textarea id="copy-text" readonly rows="10"></textarea></div><p class="footnote">Información de la operación actual. No es un comprobante fiscal.</p></div></section>
     <section id="keypad" class="keypad" aria-label="Teclado numérico" hidden><div class="keypad-heading"><span data-icon="keyboard"></span><p id="keypad-target"></p><button id="keypad-done" class="secondary">Listo<span data-icon="check"></span></button></div><div class="keys"><button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="." aria-label="Punto decimal">.</button><button data-key="0">0</button><button data-key="backspace" aria-label="Borrar último dígito">⌫</button><button data-key="clear" class="key-clear"><span data-icon="clear"></span>Limpiar campo</button></div><button id="keypad-native" class="native-input">Usar teclado del dispositivo</button><p id="keypad-status" class="error" role="status"></p></section>
-    <footer><strong>Cuenta clara · v1.3 en desarrollo</strong><span>Una cuenta a la vez. Sin registro de ventas.</span></footer>
+    <footer><strong>Cuenta clara · v1.4 · Cambio inteligente en desarrollo</strong><span>Una cuenta a la vez. Sin registro de ventas.</span></footer>
   </main>
 </body>
 </html>

@@ -22,6 +22,7 @@ export function evaluate(form,record=null){
 }
 export function extraAmount(session){return session.pending.extra?BigInt(session.pending.extra.amount):0n;}
 export function isLocked(session){return !!session.pending.lock;}
+export function hasDraftMoney(session){const f=session.draft;return !!f && ((f.currency!=='USD'&&(decimal(f.mxn)||0n)>0n)||(f.currency!=='MXN'&&(decimal(f.usd)||0n)>0n));}
 export function validateSession(value){
   if(!value||value.version!==1||!Number.isSafeInteger(value.revision)||value.revision<0)throw Error('Estado persistente inválido');
   const result={version:1,revision:value.revision,cash:validateCash(value.cash),draft:value.draft===null?null:validateForm(value.draft),pending:blankPending(),maxExtra:value.maxExtra};
@@ -71,11 +72,11 @@ export function reduceSession(input,action){
     }
     case 'limit':if(decimal(action.value)===null)throw Error('Límite inválido');s.maxExtra=action.value;break;
     case 'verify':
-      if(isLocked(s))throw Error('Finaliza o descarta el movimiento pendiente antes de verificar');
+      if(isLocked(s)||hasDraftMoney(s))throw Error('Finaliza o descarta el movimiento pendiente antes de verificar');
       if(action.confirm!==true)throw Error('Confirma el conteo físico');
       s.cash=verifyCash(s.cash,action.currency,action.counts);break;
     case 'day':
-      if(isLocked(s))throw Error('Resuelve primero el movimiento pendiente');
+      if(isLocked(s)||hasDraftMoney(s))throw Error('Resuelve primero el movimiento pendiente');
       if(action.confirm!==true)throw Error('Confirma la nueva jornada');s.cash=newDay(s.cash,action.mode);break;
     case 'receive':{
       if(s.pending.received)throw Error('El recibido ya fue confirmado para esta cuenta');
@@ -117,6 +118,10 @@ export function reduceSession(input,action){
     case 'undo':
       if(isLocked(s))throw Error('Resuelve el movimiento pendiente antes de deshacer');
       if(action.confirm!==true)throw Error('Confirma reversión física del último movimiento');s.cash=undoMovement(s.cash);break;
+    case 'recover':
+      if(action.confirm!==true)throw Error('Confirma que resolviste físicamente los movimientos y recontaste ambas monedas');
+      s.cash=verifyCash(verifyCash(s.cash,'MXN',action.counts?.MXN),'USD',action.counts?.USD);
+      s.pending=blankPending();s.draft=null;break;
     default:throw Error('Acción inválida');
   }
   s.revision++;return validateSession(s);
@@ -131,7 +136,9 @@ export class CashStore{
         const disk=this.read();if(disk.revision!==this.state.revision)throw Error('Otra pestaña cambió la jornada. Recarga antes de continuar');
         const next=reduceSession(disk,action);
         // Un único setItem es el punto de confirmación: caja, pendiente y deshacer se escriben juntos.
-        this.storage.setItem(this.key,JSON.stringify(next));this.state=next;return clone(next);
+        try { this.storage.setItem(this.key,JSON.stringify(next)); }
+        catch (cause) { const error=new Error('No se pudo guardar el movimiento. No se confirmó ningún cambio de inventario.',{cause});error.code='cash-storage-write';throw error; }
+        this.state=next;return clone(next);
       });
     };
     const result=this.queue.then(run);this.queue=result.catch(()=>{});return result;
