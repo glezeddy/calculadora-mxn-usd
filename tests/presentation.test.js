@@ -5,11 +5,11 @@ import {execFileSync} from 'node:child_process';
 test('v1.3 mantiene intactos los cálculos, resumen, cotización y política del worker',()=>{
   for(const file of ['money.js','rates.js','rate-store.js','summary.js','pwa.js']){
     const current=readFileSync(new URL('../'+file,import.meta.url),'utf8').replaceAll('\r\n','\n');
-    const previous=execFileSync('git',['show',`v1.2.0:${file}`],{encoding:'utf8'}).replaceAll('\r\n','\n');
+    const previous=execFileSync('git',['show',`5cecb17da1044e5aacbf72588754f9c973afa5ae:${file}`],{encoding:'utf8'}).replaceAll('\r\n','\n');
     assert.equal(current,previous,file);
   }
   const current=readFileSync(new URL('../keypad.js',import.meta.url),'utf8').split('export function setupKeypad')[0].replaceAll('\r\n','\n');
-  assert.equal(current,execFileSync('git',['show','v1.2.0:keypad.js'],{encoding:'utf8'}).split('export function setupKeypad')[0].replaceAll('\r\n','\n'));
+  assert.equal(current,execFileSync('git',['show','5cecb17da1044e5aacbf72588754f9c973afa5ae:keypad.js'],{encoding:'utf8'}).split('export function setupKeypad')[0].replaceAll('\r\n','\n'));
 });
 test('contraste de textos de la paleta oficial',()=>{
   const lum=hex=>{const rgb=hex.match(/\w\w/g).map(x=>parseInt(x,16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;};

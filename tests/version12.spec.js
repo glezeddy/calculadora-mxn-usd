@@ -6,7 +6,7 @@ import {existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeout:120000},async()=>{
   let legacy=true;
-  const server=createServer((file,data)=>legacy?execFileSync('git',['show',`v1.1.0:${file}`]):data);
+  const server=createServer((file,data)=>legacy?execFileSync('git',['show',`626d3ae627bddfe24a32cb5723189bdd2bf168b0:${file}`]):data);
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
   const browser=await chromium.launch({headless:true,...(existsSync(edge)?{executablePath:edge}:{})});
