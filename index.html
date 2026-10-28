@@ -43,7 +43,9 @@
         <p class="footnote">La cotización automática es una referencia diaria, no una tasa en tiempo real. El cambio siempre se entrega en MXN.</p>
       </section>
     </div>
-    <footer>Cuenta clara · v1.1 · Una cuenta a la vez. Sin registro de ventas.</footer>
+    <section class="card summary" aria-labelledby="summary-title"><h2 id="summary-title">Resumen del cobro</h2><p id="summary-empty" class="muted">Completa una operación válida para ver y copiar el resumen.</p><dl id="summary-values"></dl><button id="copy-summary" disabled>Copiar resumen</button><p id="copy-status" role="status" class="muted"></p><div id="copy-fallback" hidden><label for="copy-text">Resumen para copiar manualmente</label><textarea id="copy-text" readonly rows="10"></textarea></div><p class="footnote">Información de la operación actual. No es un comprobante fiscal.</p></section>
+    <section id="keypad" class="keypad" aria-label="Teclado numérico" hidden><p id="keypad-target"></p><div class="keys"><button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="." aria-label="Punto decimal">.</button><button data-key="0">0</button><button data-key="backspace" aria-label="Borrar último dígito">⌫</button><button data-key="clear" class="key-clear">Limpiar campo</button></div><p id="keypad-status" class="error" role="status"></p></section>
+    <footer>Cuenta clara · v1.2 · Una cuenta a la vez. Sin registro de ventas.</footer>
   </main>
 </body>
 </html>

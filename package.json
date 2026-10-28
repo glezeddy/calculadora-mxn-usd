@@ -5,10 +5,10 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "dev": "node scripts/server.js",
-    "test:browser": "node --test tests/browser.spec.js"
+    "test:browser": "node --test tests/*.spec.js"
   },
   "devDependencies": {
     "playwright": "^1.64.1"
   },
-  "version": "1.1.0"
+  "version": "1.2.0"
 }
