@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#175e4c">
+  <title>Cuenta clara · Calculadora de cobros</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <main>
+    <header><div><span class="eyebrow">MXN / USD</span><h1>Cuenta clara<span>.</span></h1><p>Cobra fácil. Entrega el cambio exacto.</p></div><button id="reset" class="secondary">↻ Nueva cuenta</button></header>
+    <div class="layout">
+      <section class="card prices" aria-labelledby="prices-title">
+        <div class="section-heading"><span class="step">01</span><h2 id="prices-title">Precios de la compra</h2></div>
+        <p class="muted">Introduce cada importe en pesos mexicanos.</p>
+        <div id="prices"></div>
+        <button id="add" class="add">+ Agregar precio</button>
+        <p id="price-error" class="error" role="status"></p>
+        <div class="total"><span>Total de la compra</span><strong id="total" aria-live="polite">$0.00 MXN</strong></div>
+      </section>
+      <section class="card payment" aria-labelledby="payment-title">
+        <div class="section-heading"><span class="step">02</span><h2 id="payment-title">Cobrar y dar cambio</h2></div>
+        <fieldset class="currency"><legend>Moneda de pago</legend><label><input type="radio" name="currency" value="MXN" checked><span>MXN · Pesos</span></label><label><input type="radio" name="currency" value="USD"><span>USD · Dólares</span></label></fieldset>
+        <div id="usd-total-box" class="equivalent" hidden><span>Total a cobrar en USD</span><strong id="usd-total">—</strong><small>Redondeado hacia arriba al centavo.</small></div>
+        <label for="received" id="received-label">Dinero recibido en MXN</label>
+        <input id="received" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="received-error">
+        <p id="received-error" class="error" role="status"></p>
+        <p id="converted" class="muted"></p>
+        <div class="change" aria-live="polite"><span id="change-label">Cambio en pesos</span><strong id="change">—</strong><small id="change-note">Introduce los precios y el dinero recibido.</small></div>
+      </section>
+      <section class="card exchange" aria-labelledby="exchange-title">
+        <div class="exchange-top"><div class="section-heading"><span class="step">03</span><h2 id="exchange-title">Tipo de cambio</h2></div><span id="rate-badge" class="badge">Automático</span></div>
+        <div class="exchange-grid"><div><label for="rate-mode">Tasa para este negocio</label><select id="rate-mode"><option value="auto">Automática · Frankfurter</option><option value="manual">Manual · Mi negocio</option></select><div id="manual-box" hidden><label for="manual-rate">Pesos por 1 USD</label><input id="manual-rate" type="text" inputmode="decimal" placeholder="Escribe tu tasa" autocomplete="off"><p class="muted">Hasta 10 decimales. Debe ser mayor que cero.</p></div></div><div><strong id="rate-value" class="rate-value">Consultando…</strong><p id="rate-status" role="status" class="muted"></p><p id="rate-dates" class="metadata"></p><button id="refresh" class="secondary">Actualizar cotización</button></div></div>
+        <p class="footnote">La cotización automática es una referencia diaria, no una tasa en tiempo real. El cambio siempre se entrega en MXN.</p>
+      </section>
+    </div>
+    <footer>Una cuenta a la vez. Sin registro de ventas.</footer>
+  </main>
+</body>
+</html>
