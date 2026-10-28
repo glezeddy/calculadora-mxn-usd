@@ -32,3 +32,13 @@ Estado base confirmado remotamente: main y v1.2.0 en 5cecb17da1044e5aacbf7258875
 - Vistas emuladas 320/360/390/768/1280 px, sin desbordamiento; panel integrado en flujo, sin superposición sobre campo/resultado; foco visible y movimiento reducido. Capturas móvil/escritorio revisadas.
 
 Pendiente físico: comprobar supresión del teclado nativo, apertura voluntaria del teclado del dispositivo, comodidad con áreas seguras, instalación y actualización en Android/iOS. La emulación no sustituye esas pruebas.
+
+## v1.4 — Cambio inteligente (solo rama, sin publicar)
+
+Resultados finales: 35 pruebas unitarias aprobadas, 11 pruebas de navegador aprobadas y revisión sintáctica de los módulos JS/MJS. Se conservaron los siete casos iniciales del motor y las regresiones de la calculadora, teclado, resumen y PWA anteriores.
+
+Cobertura nueva: combinaciones/alternativas exactas, límites de búsqueda y cantidades, inventarios MXN/USD, conteo y corrección, ajustes con recepción física, devolución al cancelar, recibido/entregado atómico, no duplicación, persistencia/recarga, una sola reversión, jornadas, cierre sin registro completo y recuperación ante almacenamiento fallido.
+
+Se comprobó migración de PWA desde v1.3 y una actualización dentro de v1.4 con ajuste pendiente, sin cambiar los archivos del worker en disco para el test. Se mantiene el diseño Dark Fintech y solo se iluminan las tarjetas de denominaciones usadas.
+
+Informe y limitaciones: docs/informe-v1.4.md. No se publicó v1.4. Las pruebas en teléfono físico e integración móvil por HTTPS requieren autorización posterior y revisión con efectivo simulado.
