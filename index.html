@@ -2,9 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#175e4c">
-  <title>Cuenta clara · Calculadora de cobros</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <meta name="color-scheme" content="dark">
+  <title>Cuenta clara · v1.3 en desarrollo</title>
   <link rel="stylesheet" href="./styles.css">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
@@ -14,8 +15,8 @@
 </head>
 <body>
   <main>
-    <header><div><span class="eyebrow">MXN / USD</span><h1>Cuenta clara<span>.</span></h1><p>Cobra fácil. Entrega el cambio exacto.</p></div><button id="reset" class="secondary">↻ Nueva cuenta</button></header>
-    <div class="app-state"><span id="connection" role="status"></span><button id="install" hidden>Instalar aplicación</button></div>
+    <header class="page-header"><div><span class="eyebrow">CALCULADORA MXN / USD</span><h1>Cuenta clara<span>.</span></h1><p>Cobra fácil. Entrega el cambio exacto.</p></div><button id="reset" class="secondary"><span data-icon="reset"></span>Nueva cuenta</button></header>
+    <div class="app-state"><span class="development">v1.3 · En desarrollo · Pruebas</span><span id="connection" role="status"></span><button id="install" hidden>Instalar aplicación</button></div>
     <div id="pwa-update" class="notice" hidden><p>Hay una nueva versión lista. Aplicarla recarga la página y limpia la cuenta actual.</p><button id="apply-update">Actualizar aplicación</button></div>
     <p id="pwa-status" class="metadata" role="status"></p>
     <div class="layout">
@@ -23,29 +24,32 @@
         <div class="section-heading"><span class="step">01</span><h2 id="prices-title">Precios de la compra</h2></div>
         <p class="muted">Introduce cada importe en pesos mexicanos.</p>
         <div id="prices"></div>
-        <button id="add" class="add">+ Agregar precio</button>
+        <button id="add" class="add"><span data-icon="plus"></span>Agregar precio</button>
         <p id="price-error" class="error" role="status"></p>
-        <div class="total"><span>Total de la compra</span><strong id="total" aria-live="polite">$0.00 MXN</strong></div>
+        <div class="total"><span>Total de la compra</span><strong id="total" aria-live="polite">$0.00 MXN</strong><small>Pesos mexicanos</small></div>
       </section>
       <section class="card payment" aria-labelledby="payment-title">
         <div class="section-heading"><span class="step">02</span><h2 id="payment-title">Cobrar y dar cambio</h2></div>
         <fieldset class="currency"><legend>Moneda de pago</legend><label><input type="radio" name="currency" value="MXN" checked><span>MXN · Pesos</span></label><label><input type="radio" name="currency" value="USD"><span>USD · Dólares</span></label><label><input type="radio" name="currency" value="combined"><span>Pago combinado</span></label></fieldset>
         <p id="payment-rate" class="metadata" role="status"></p>
         <div id="usd-total-box" class="equivalent" hidden><span>Total a cobrar en USD</span><strong id="usd-total">—</strong><small>Redondeado hacia arriba al centavo.</small></div>
-        <div id="mxn-box" class="received-box"><label for="received-mxn">Dinero recibido en MXN</label><input id="received-mxn" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="mxn-error"><div id="mxn-bills" class="bills" role="group" aria-label="Agregar billetes en MXN"></div><button id="clear-mxn" class="clear">Limpiar MXN</button><p id="mxn-error" class="error" role="status"></p></div>
-        <div id="usd-box" class="received-box" hidden><label for="received-usd">Dinero recibido en USD</label><input id="received-usd" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="usd-error"><div id="usd-bills" class="bills" role="group" aria-label="Agregar billetes en USD"></div><button id="clear-usd" class="clear">Limpiar USD</button><p id="usd-error" class="error" role="status"></p></div>
+        <div id="mxn-box" class="received-box"><label for="received-mxn">Dinero recibido <span class="unit">MXN</span></label><div class="amount-control"><input id="received-mxn" type="text" inputmode="none" placeholder="0.00" autocomplete="off" aria-describedby="mxn-error"><button class="keypad-toggle" data-input="received-mxn" aria-label="Abrir teclado para dinero recibido en MXN" aria-controls="keypad" aria-expanded="false"><span data-icon="keyboard"></span></button></div><div id="mxn-bills" class="bills" role="group" aria-label="Agregar billetes en MXN"></div><button id="clear-mxn" class="clear"><span data-icon="clear"></span>Limpiar MXN</button><p id="mxn-error" class="error" role="status"></p></div>
+        <div id="usd-box" class="received-box" hidden><label for="received-usd">Dinero recibido <span class="unit">USD</span></label><div class="amount-control"><input id="received-usd" type="text" inputmode="none" placeholder="0.00" autocomplete="off" aria-describedby="usd-error"><button class="keypad-toggle" data-input="received-usd" aria-label="Abrir teclado para dinero recibido en USD" aria-controls="keypad" aria-expanded="false"><span data-icon="keyboard"></span></button></div><div id="usd-bills" class="bills" role="group" aria-label="Agregar billetes en USD"></div><button id="clear-usd" class="clear"><span data-icon="clear"></span>Limpiar USD</button><p id="usd-error" class="error" role="status"></p></div>
         <p id="converted" class="muted"></p>
-        <div class="change" aria-live="polite"><span id="change-label">Cambio en pesos</span><strong id="change">—</strong><small id="change-note">Introduce los precios y el dinero recibido.</small></div>
+        <div class="change neutral" aria-live="polite"><div class="result-heading"><span id="result-icon" data-icon="info"></span><span id="result-state">Por completar</span></div><span id="change-label">Cambio en pesos</span><strong id="change">—</strong><small id="change-note">Introduce los precios y el dinero recibido.</small></div>
       </section>
       <section class="card exchange" aria-labelledby="exchange-title">
         <div class="exchange-top"><div class="section-heading"><span class="step">03</span><h2 id="exchange-title">Tipo de cambio</h2></div><span id="rate-badge" class="badge">Automático</span></div>
-        <div class="exchange-grid"><div><label for="rate-mode">Tasa para este negocio</label><select id="rate-mode"><option value="auto">Automática · Frankfurter</option><option value="manual">Manual · Mi negocio</option><option id="saved-option" value="saved" disabled>Referencia anterior · Usar explícitamente</option></select><div id="manual-box" hidden><label for="manual-rate">Pesos por 1 USD</label><input id="manual-rate" type="text" inputmode="decimal" placeholder="Escribe tu tasa" autocomplete="off"><p class="muted">Hasta 10 decimales. Debe ser mayor que cero.</p></div><p id="saved-info" class="metadata"></p><p id="storage-status" class="error" role="status"></p></div><div><strong id="rate-value" class="rate-value">Consultando…</strong><p id="rate-status" role="status" class="muted"></p><p id="rate-dates" class="metadata"></p><button id="refresh" class="secondary">Actualizar cotización</button></div></div>
-        <p class="footnote">La cotización automática es una referencia diaria, no una tasa en tiempo real. El cambio siempre se entrega en MXN.</p>
+        <div class="exchange-grid"><div><label for="rate-mode">Tasa para este negocio</label><select id="rate-mode"><option value="auto">Automática · Frankfurter</option><option value="manual">Manual · Mi negocio</option><option id="saved-option" value="saved" disabled>Referencia anterior · Usar explícitamente</option></select><div id="manual-box" hidden><label for="manual-rate">Pesos por 1 USD</label><input id="manual-rate" type="text" inputmode="decimal" placeholder="Escribe tu tasa" autocomplete="off"><p class="muted">Hasta 10 decimales. Debe ser mayor que cero.</p></div><p id="storage-status" class="error" role="status"></p></div><div class="rate-card"><strong id="rate-value" class="rate-value">Consultando…</strong><p id="rate-reference" class="metadata"></p><button id="refresh" class="secondary"><span data-icon="refresh"></span>Actualizar cotización</button></div></div>
+        <p id="rate-status" role="status" class="muted rate-status"></p>
+        <button id="quote-toggle" class="disclosure" aria-controls="quote-panel" aria-expanded="false"><span data-icon="info"></span><span>Detalles de la cotización</span><span data-icon="chevron" class="chevron"></span></button>
+        <div id="quote-panel" hidden><p class="metadata">Fuente automática: Frankfurter · USD/MXN. La tasa manual es definida por tu negocio.</p><p id="saved-info" class="metadata"></p><p id="rate-dates" class="metadata"></p></div>
+        <p class="footnote"><span data-icon="info"></span>La cotización automática es una referencia diaria, no una tasa en tiempo real. El cambio siempre se entrega en MXN.</p>
       </section>
     </div>
-    <section class="card summary" aria-labelledby="summary-title"><h2 id="summary-title">Resumen del cobro</h2><p id="summary-empty" class="muted">Completa una operación válida para ver y copiar el resumen.</p><dl id="summary-values"></dl><button id="copy-summary" disabled>Copiar resumen</button><p id="copy-status" role="status" class="muted"></p><div id="copy-fallback" hidden><label for="copy-text">Resumen para copiar manualmente</label><textarea id="copy-text" readonly rows="10"></textarea></div><p class="footnote">Información de la operación actual. No es un comprobante fiscal.</p></section>
-    <section id="keypad" class="keypad" aria-label="Teclado numérico" hidden><p id="keypad-target"></p><div class="keys"><button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="." aria-label="Punto decimal">.</button><button data-key="0">0</button><button data-key="backspace" aria-label="Borrar último dígito">⌫</button><button data-key="clear" class="key-clear">Limpiar campo</button></div><p id="keypad-status" class="error" role="status"></p></section>
-    <footer>Cuenta clara · v1.2 · Una cuenta a la vez. Sin registro de ventas.</footer>
+    <section class="card summary" aria-labelledby="summary-title"><button id="summary-toggle" class="disclosure" aria-controls="summary-panel" aria-expanded="false"><span data-icon="receipt"></span><span id="summary-title">Resumen del cobro</span><span data-icon="chevron" class="chevron"></span></button><div id="summary-panel" hidden><p id="summary-empty" class="muted">Completa una operación válida para ver y copiar el resumen.</p><dl id="summary-values"></dl><button id="copy-summary" disabled><span data-icon="copy"></span>Copiar resumen</button><p id="copy-status" role="status" class="muted"></p><div id="copy-fallback" hidden><label for="copy-text">Resumen para copiar manualmente</label><textarea id="copy-text" readonly rows="10"></textarea></div><p class="footnote">Información de la operación actual. No es un comprobante fiscal.</p></div></section>
+    <section id="keypad" class="keypad" aria-label="Teclado numérico" hidden><div class="keypad-heading"><span data-icon="keyboard"></span><p id="keypad-target"></p><button id="keypad-done" class="secondary">Listo<span data-icon="check"></span></button></div><div class="keys"><button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="." aria-label="Punto decimal">.</button><button data-key="0">0</button><button data-key="backspace" aria-label="Borrar último dígito">⌫</button><button data-key="clear" class="key-clear"><span data-icon="clear"></span>Limpiar campo</button></div><button id="keypad-native" class="native-input">Usar teclado del dispositivo</button><p id="keypad-status" class="error" role="status"></p></section>
+    <footer><strong>Cuenta clara · v1.3 en desarrollo</strong><span>Una cuenta a la vez. Sin registro de ventas.</span></footer>
   </main>
 </body>
 </html>

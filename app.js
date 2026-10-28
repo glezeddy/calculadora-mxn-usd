@@ -3,6 +3,8 @@ import { fetchRate } from './rates.js';
 import { loadRate, saveRate } from './rate-store.js';
 import { setupKeypad } from './keypad.js';
 import { buildSummary, renderSummary } from './summary.js';
+import { icon } from './icons.js';
+import { setupUI, presentState } from './ui.js';
 let summary = null;
 const $ = id => document.getElementById(id);
 let sequence = 0;
@@ -25,9 +27,9 @@ function addPrice(focus = true) {
   const row = document.createElement('div');
   row.className = 'price-row';
   const id = `price-${++sequence}`;
-  row.innerHTML = `<label for="${id}">Precio en MXN</label><div class="price-controls"><input id="${id}" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="price-error"><button class="remove" aria-label="Eliminar precio">×</button></div>`;
+  row.innerHTML = `<label for="${id}">Precio en MXN</label><div class="price-controls"><div class="amount-control"><input id="${id}" type="text" inputmode="none" placeholder="0.00" autocomplete="off" aria-describedby="price-error"><button class="keypad-toggle" data-input="${id}" aria-label="Abrir teclado para precio en MXN" aria-controls="keypad" aria-expanded="false">${icon('keyboard')}</button></div><button class="remove" aria-label="Eliminar precio">${icon('trash')}</button></div>`;
   row.querySelector('input').addEventListener('input', render);
-  row.querySelector('button').addEventListener('click', () => {
+  row.querySelector('.remove').addEventListener('click', () => {
     row.remove();
     if (!$('prices').children.length) addPrice(false);
     render();
@@ -78,6 +80,7 @@ function render() {
   $('manual-rate').setAttribute('aria-invalid', String(mode() === 'manual' && !rate));
   const badge = mode() === 'manual' ? 'Manual' : mode() === 'saved' ? 'Referencia anterior' : 'Automático';
   $('rate-badge').textContent = badge;
+  presentState({ ready, short, record: currentRecord(), manual: mode() === 'manual' });
   const value = mode() === 'manual' ? $('manual-rate').value.trim().replace(',', '.') : currentRecord()?.value;
   summary = buildSummary({ ready, total: invalid ? null : total, currency: currency(), mxn: decimal($('received-mxn').value) ?? 0n, usd: decimal($('received-usd').value) ?? 0n, converted, rateDescription: `${badge} · 1 USD = $${value} MXN${currentRecord() && mode() !== 'manual' ? ` · referencia ${currentRecord().date} · consulta ${formatDate(currentRecord().fetchedAt)}` : ''}` });
   renderSummary(summary);
@@ -142,6 +145,7 @@ window.addEventListener('offline', () => {
   render();
 });
 window.addEventListener('online', () => { render(); refresh(); });
+setupUI();
 setupKeypad();
 $('copy-summary').addEventListener('click', async () => {
   if (!summary) return;

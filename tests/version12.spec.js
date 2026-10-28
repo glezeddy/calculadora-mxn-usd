@@ -20,6 +20,7 @@ test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeou
     legacy=false;await page.evaluate(async()=>{await(await navigator.serviceWorker.getRegistration()).update();});
     await page.locator('#pwa-update').waitFor({state:'visible'});await page.locator('#apply-update').click();
     await page.locator('#summary-title').waitFor();
+    await page.locator('#summary-toggle').click();
     await page.waitForFunction(async()=>!(await caches.keys()).some(k=>k.endsWith(':1.1.0')));
     const key=k=>page.locator(`#keypad button[data-key="${k}"]`).click();
     await page.locator('#prices input').focus();
@@ -47,7 +48,7 @@ test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeou
     for(const width of [360,390,768,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.ok(await page.locator('#keypad button').first().evaluate(e=>e.getBoundingClientRect().height>=44));await page.screenshot({path:`test-results/v12-${width}.png`,fullPage:true});}
     await context.setOffline(true);await page.reload();await page.locator('#prices input').focus();for(const k of ['1','0'])await key(k);
     await page.locator('#received-mxn').focus();for(const k of ['2','0'])await key(k);
-    await page.locator('#copy-summary').click();copied=await page.evaluate(()=>navigator.clipboard.readText());assert.match(copied,/Cambio a entregar: \$10.00 MXN/);
+    await page.locator('#summary-toggle').click();await page.locator('#copy-summary').click();copied=await page.evaluate(()=>navigator.clipboard.readText());assert.match(copied,/Cambio a entregar: \$10.00 MXN/);
     await page.evaluate(()=>{navigator.clipboard.writeText=async()=>{throw Error('Bloqueado');};});
     await page.locator('#copy-summary').click();assert.ok(await page.locator('#copy-text').isVisible());assert.match(await page.locator('#copy-text').inputValue(),/Pago completo/);
     await page.locator('#reset').click();assert.ok(await page.locator('#copy-summary').isDisabled());assert.ok(await page.locator('#copy-fallback').isHidden());

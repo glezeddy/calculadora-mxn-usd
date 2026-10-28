@@ -18,16 +18,45 @@ export function setupKeypad() {
   const panel = document.getElementById('keypad');
   const targetLabel = document.getElementById('keypad-target');
   let target = null;
+  let nativeMode = false;
   const eligible = input => input instanceof HTMLInputElement && (input.closest('#prices') || ['received-mxn', 'received-usd'].includes(input.id));
-  document.addEventListener('focusin', event => {
-    if (!eligible(event.target)) return;
-    target = event.target;
+  const toggles = () => document.querySelectorAll('.keypad-toggle');
+  const close = (restoreFocus = false) => {
+    panel.hidden = true;
+    toggles().forEach(button => button.setAttribute('aria-expanded', 'false'));
+    if (restoreFocus && target?.isConnected) document.querySelector(`.keypad-toggle[data-input="${target.id}"]`)?.focus({preventScroll:true});
+  };
+  const open = input => {
+    target = input;
+    target.inputMode = 'none';
     const label = document.querySelector(`label[for="${target.id}"]`);
     targetLabel.textContent = `Editando: ${label?.textContent || 'Importe'}`;
     const host = target.closest('.price-row, .received-box');
-    if (panel.parentElement !== host) host.append(panel);
+    if (panel.parentElement !== host) host.querySelector('.price-controls, .amount-control').after(panel);
+    toggles().forEach(button => button.setAttribute('aria-expanded', String(button.dataset.input === target.id)));
     panel.hidden = false;
+  };
+  document.addEventListener('focusin', event => {
+    if (eligible(event.target)) {
+      target = event.target;
+      target.inputMode = nativeMode ? 'decimal' : 'none';
+      if (!nativeMode) open(target);
+    }
   });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('.keypad-toggle');
+    if (!button) return;
+    const input = document.getElementById(button.dataset.input);
+    if (!eligible(input)) return;
+    if (!panel.hidden && target === input) { close(true); return; }
+    input.blur(); nativeMode = false; open(input); input.focus({preventScroll:true});
+  });
+  document.getElementById('keypad-done').addEventListener('click', () => close(true));
+  document.getElementById('keypad-native').addEventListener('click', () => {
+    nativeMode = true; close();
+    if (target?.isConnected) { target.blur(); target.inputMode = 'decimal'; target.focus({preventScroll:true}); }
+  });
+  panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); close(true); } });
   panel.addEventListener('pointerdown', event => { if (event.target.closest('button')) event.preventDefault(); });
   panel.addEventListener('click', event => {
     const button = event.target.closest('button[data-key]');
@@ -39,7 +68,7 @@ export function setupKeypad() {
     target.setSelectionRange(result.caret, result.caret);
     target.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  document.querySelectorAll('input[name=currency]').forEach(input => input.addEventListener('change', () => { panel.hidden = true; target = null; }));
+  document.querySelectorAll('input[name=currency]').forEach(input => input.addEventListener('change', () => { close(); target = null; }));
   // Si se elimina el precio que contiene el panel, se recupera para el siguiente campo.
   new MutationObserver(() => { if (!panel.isConnected) { document.querySelector('main').append(panel); panel.hidden = true; target = null; } }).observe(document.getElementById('prices'), {childList:true,subtree:true});
 }

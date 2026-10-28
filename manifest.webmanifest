@@ -1,16 +1,26 @@
 {
   "id": "./",
-  "name": "Cuenta clara · Calculadora MXN/USD",
-  "short_name": "Cuenta clara",
+  "name": "Cuenta clara · v1.3 en pruebas",
+  "short_name": "Cuenta clara · Pruebas",
   "lang": "es-MX",
   "description": "Calculadora de cobros en pesos, dólares y pagos combinados.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f3f5f0",
-  "theme_color": "#175e4c",
+  "background_color": "#101827",
+  "theme_color": "#101827",
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
