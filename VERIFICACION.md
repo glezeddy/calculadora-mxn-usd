@@ -1,12 +1,10 @@
-# Verificación de la primera versión
+# Verificación de v1.1
 
-Comprobada el 28 de octubre de 2026.
+- 8 pruebas unitarias: regresiones v1.0, pagos combinados, decimales, faltantes, billetes, límites, entradas inválidas y persistencia de tasa con datos corruptos/almacenamiento bloqueado.
+- Prueba integral en Edge: pagos MXN, USD y combinado; billetes repetidos e independientes; tasa inválida; nueva cuenta; error de API; recarga sin conexión; tasa anterior requiere selección explícita; no se consulta la API offline.
+- PWA: precarga y control reales; manifest e iconos; actualización con un segundo worker servido en memoria; aviso sin limpiar el cobro; aplicación explícita; eliminación de caché antigua sin tocar una ajena; API ausente de caché.
+- Vistas emuladas de 360, 390, 768 y 1280 px sin desbordamiento horizontal, botones táctiles de al menos 44 px; captura móvil revisada visualmente.
+- Consulta real desde localhost: Frankfurter respondió con tasa y fecha de referencia. No se incluye una tasa de respaldo inventada.
+- Auditoría de instalación en contexto automatizado: único impedimento informado por Chromium fue «in-incognito», propio del contexto privado de las pruebas. No se realizó instalación en un dispositivo físico.
 
-- `npm test`: 5 pruebas aprobadas, sin fallas. Incluyen sumas exactas, faltantes, redondeo, importes grandes, tasas inválidas y errores de API.
-- Navegador Microsoft Edge, automatizado con Playwright: flujo de agregar/eliminar precios, cambio MXN, pago USD, faltantes, tasa cero, precios negativos, nueva cuenta y conservación de tasa manual.
-- Falla de red simulada: se invalida la tasa automática y no aparece cambio en USD; una tasa manual válida permite continuar.
-- Vistas de 360, 390, 768 y 1280 px: sin desbordamiento horizontal; botón de agregar con tamaño táctil mínimo de 44 px. Revisión visual de la captura móvil de 360 px.
-- Consulta real a Frankfurter desde el navegador: respuesta correcta con CORS. No se requiere clave.
-- Sin errores JavaScript durante los flujos comprobados.
-
-Las pruebas de interfaz usaron cotizaciones de prueba controladas; estas no están incluidas como respaldo en la aplicación. La consulta real se comprobó por separado. Las vistas móviles se probaron en navegador con tamaños de pantalla emulados, no en un teléfono físico. No se ha realizado publicación en GitHub Pages.
+Las pruebas no equivalen a revisión en todos los teléfonos o navegadores. v1.1 no se ha publicado en Pages; la versión pública sigue en main. La vista local es un entorno de prueba independiente.

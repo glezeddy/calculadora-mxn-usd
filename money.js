@@ -27,3 +27,24 @@ export function money(cents, currency = 'MXN') {
   const whole = (absolute / 100n).toLocaleString('es-MX');
   return `${sign}$${whole}.${String(absolute % 100n).padStart(2, '0')} ${currency}`;
 }
+
+export function amountText(cents) {
+  return `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
+}
+export function addBill(value, denomination) {
+  const current = String(value).trim() === '' ? 0n : decimal(value);
+  const bill = decimal(denomination);
+  if (current === null || bill === null) return null;
+  const result = amountText(current + bill);
+  return decimal(result) === null ? null : result;
+}
+export function receivedMXN(mode, mxnText, usdText, rate) {
+  const combined = mode === 'combined';
+  const mxn = mode === 'USD' ? 0n : combined && !mxnText.trim() ? 0n : decimal(mxnText);
+  const usd = mode === 'MXN' ? 0n : combined && !usdText.trim() ? 0n : decimal(usdText);
+  if (!['MXN', 'USD', 'combined'].includes(mode) || mxn === null || usd === null) return null;
+  if (combined && !mxnText.trim() && !usdText.trim()) return null;
+  // Cualquier modalidad que incluya USD necesita una tasa válida, incluso con USD vacío.
+  const converted = mode === 'MXN' ? 0n : convertToMXN(usd, rate);
+  return converted === null ? null : mxn + converted;
+}
