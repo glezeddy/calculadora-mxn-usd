@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Cuenta clara · v1.4 Cambio inteligente · Pruebas",
-  "short_name": "Cuenta clara · Pruebas",
+  "name": "Cuenta clara · v1.4 Cambio inteligente",
+  "short_name": "Cuenta clara",
   "lang": "es-MX",
   "description": "Calculadora de cobros en pesos, dólares y pagos combinados.",
   "start_url": "./",

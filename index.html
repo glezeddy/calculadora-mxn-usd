@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101827">
   <meta name="color-scheme" content="dark">
-  <title>Cuenta clara · v1.4 · Cambio inteligente en desarrollo</title>
+  <title>Cuenta clara · v1.4 · Cambio inteligente</title>
   <link rel="stylesheet" href="./styles.css">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
@@ -16,7 +16,7 @@
 <body>
   <main>
     <header class="page-header"><div><span class="eyebrow">CALCULADORA MXN / USD</span><h1>Cuenta clara<span>.</span></h1><p>Cobra fácil. Entrega el cambio exacto.</p></div><button id="reset" class="secondary"><span data-icon="reset"></span>Nueva cuenta</button></header>
-    <div class="app-state"><span class="development">v1.4 · Cambio inteligente · En desarrollo · Pruebas</span><span id="connection" role="status"></span><button id="install" hidden>Instalar aplicación</button></div>
+    <div class="app-state"><span class="development">v1.4 · Cambio inteligente</span><span id="connection" role="status"></span><button id="install" hidden>Instalar aplicación</button></div>
     <div id="pwa-update" class="notice" hidden><p>Hay una nueva versión lista. Aplicarla recarga la página y conserva la cuenta y movimientos guardados en este dispositivo.</p><button id="apply-update">Actualizar aplicación</button></div>
     <p id="pwa-status" class="metadata" role="status"></p>
     <div class="layout">
@@ -65,7 +65,7 @@
     <dialog id="cash-dialog" aria-labelledby="cash-dialog-title"></dialog>
     <section class="card summary" aria-labelledby="summary-title"><button id="summary-toggle" class="disclosure" aria-controls="summary-panel" aria-expanded="false"><span data-icon="receipt"></span><span id="summary-title">Resumen del cobro</span><span data-icon="chevron" class="chevron"></span></button><div id="summary-panel" hidden><p id="summary-empty" class="muted">Completa una operación válida para ver y copiar el resumen.</p><dl id="summary-values"></dl><button id="copy-summary" disabled><span data-icon="copy"></span>Copiar resumen</button><p id="copy-status" role="status" class="muted"></p><div id="copy-fallback" hidden><label for="copy-text">Resumen para copiar manualmente</label><textarea id="copy-text" readonly rows="10"></textarea></div><p class="footnote">Información de la operación actual. No es un comprobante fiscal.</p></div></section>
     <section id="keypad" class="keypad" aria-label="Teclado numérico" hidden><div class="keypad-heading"><span data-icon="keyboard"></span><p id="keypad-target"></p><button id="keypad-done" class="secondary">Listo<span data-icon="check"></span></button></div><div class="keys"><button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="." aria-label="Punto decimal">.</button><button data-key="0">0</button><button data-key="backspace" aria-label="Borrar último dígito">⌫</button><button data-key="clear" class="key-clear"><span data-icon="clear"></span>Limpiar campo</button></div><button id="keypad-native" class="native-input">Usar teclado del dispositivo</button><p id="keypad-status" class="error" role="status"></p></section>
-    <footer><strong>Cuenta clara · v1.4 · Cambio inteligente en desarrollo</strong><span>Una cuenta a la vez. Sin registro de ventas.</span></footer>
+    <footer><strong>Cuenta clara · v1.4 · Cambio inteligente</strong><span>Una cuenta a la vez. Sin registro de ventas.</span></footer>
   </main>
 </body>
 </html>

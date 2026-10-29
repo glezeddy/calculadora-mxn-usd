@@ -82,7 +82,7 @@ test('v1.3: desplegables accesibles, teclado alternativo y PWA desde v1.2',{time
     await page.locator('#prices input').fill('350');await page.locator('#received-mxn').fill('200');await page.locator('#received-usd').fill('10');
     assert.equal(await page.locator('#change').textContent(),'$30.00 MXN');
     await page.locator('#summary-toggle').click();await page.locator('#copy-summary').click();assert.match(await page.evaluate(()=>navigator.clipboard.readText()),/Cambio a entregar: \$30.00 MXN/);
-    const urls=await page.evaluate(async()=>{const c=await caches.open((await caches.keys()).find(k=>k.endsWith('1.4.0-dev.1')));return(await c.keys()).map(r=>r.url);});
+    const urls=await page.evaluate(async()=>{const c=await caches.open((await caches.keys()).find(k=>k.endsWith('1.4.0')));return(await c.keys()).map(r=>r.url);});
     assert.ok(urls.includes(url+'icons.js')&&urls.includes(url+'ui.js'));
     await context.setOffline(false);await page.waitForFunction(()=>document.querySelector('#connection').textContent==='Con conexión');assert.deepEqual(errors,[]);
   }finally{await browser.close();await new Promise(r=>server.close(r));}
