@@ -3,7 +3,12 @@ import { fetchRate } from './rates.js';
 import { loadRate, saveRate } from './rate-store.js';
 import { setupKeypad } from './keypad.js';
 import { buildSummary, renderSummary } from './summary.js';
+import { createCashUI } from './cash-ui.js';
+import { icon } from './icons.js';
+import { setupUI, presentState } from './ui.js';
 let summary = null;
+let cashUI = null;
+let restoringCash = false;
 const $ = id => document.getElementById(id);
 let sequence = 0;
 let automatic = null;
@@ -18,16 +23,16 @@ try { saved = loadRate(localStorage); } catch { storageIssue = 'El almacenamient
 const currency = () => document.querySelector('input[name=currency]:checked').value;
 const mode = () => $('rate-mode').value;
 const online = () => navigator.onLine;
-const currentRecord = () => mode() === 'saved' ? selectedSaved : automatic;
+const currentRecord = () => cashUI?.lockContext() && cashUI.lockContext().form.currency !== 'MXN' && mode() !== 'manual' ? cashUI.lockContext().record : mode() === 'saved' ? selectedSaved : automatic;
 const activeRate = () => mode() === 'manual' ? rateFraction($('manual-rate').value) : currentRecord() && rateFraction(currentRecord().value);
 const formatDate = value => new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'medium' });
 function addPrice(focus = true) {
   const row = document.createElement('div');
   row.className = 'price-row';
   const id = `price-${++sequence}`;
-  row.innerHTML = `<label for="${id}">Precio en MXN</label><div class="price-controls"><input id="${id}" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="price-error"><button class="remove" aria-label="Eliminar precio">×</button></div>`;
+  row.innerHTML = `<label for="${id}">Precio en MXN</label><div class="price-controls"><div class="amount-control"><input id="${id}" type="text" inputmode="none" placeholder="0.00" autocomplete="off" aria-describedby="price-error"><button class="keypad-toggle" data-input="${id}" aria-label="Abrir teclado para precio en MXN" aria-controls="keypad" aria-expanded="false">${icon('keyboard')}</button></div><button class="remove" aria-label="Eliminar precio">${icon('trash')}</button></div>`;
   row.querySelector('input').addEventListener('input', render);
-  row.querySelector('button').addEventListener('click', () => {
+  row.querySelector('.remove').addEventListener('click', () => {
     row.remove();
     if (!$('prices').children.length) addPrice(false);
     render();
@@ -65,7 +70,9 @@ function render() {
     input.setAttribute('aria-invalid', String(bad));
     $(`${name}-error`).textContent = bad ? 'Escribe un importe positivo o cero, con hasta 2 decimales y 10 dígitos enteros.' : '';
   }
-  const converted = receivedMXN(currency(), $('received-mxn').value, $('received-usd').value, rate);
+  const baseConverted = receivedMXN(currency(), $('received-mxn').value, $('received-usd').value, rate);
+  const extra = cashUI?.extra() || 0n;
+  const converted = baseConverted === null ? null : baseConverted + extra;
   $('converted').textContent = usd && converted !== null ? `${currency() === 'combined' ? 'Total recibido' : 'Equivale a'}: ${money(converted)}.` : '';
   const ready = !invalid && hasPrices && converted !== null;
   const difference = ready ? converted - total : null;
@@ -76,26 +83,33 @@ function render() {
   $('change-note').textContent = invalid ? 'Corrige los precios para calcular el cambio.' : usd && !rate ? 'Se necesita un tipo de cambio válido para cobrar en USD.' : !ready ? 'Introduce los precios y el dinero recibido.' : short ? 'El dinero recibido no cubre la compra.' : 'Entrega este importe en pesos mexicanos.';
   $('manual-box').hidden = mode() !== 'manual';
   $('manual-rate').setAttribute('aria-invalid', String(mode() === 'manual' && !rate));
-  const badge = mode() === 'manual' ? 'Manual' : mode() === 'saved' ? 'Referencia anterior' : 'Automático';
+  const frozen = !!cashUI?.locked() && currency() !== 'MXN' && mode() !== 'manual';
+  const badge = frozen ? (mode() === 'saved' ? 'Fijada · Referencia anterior' : 'Fijada · Automática original') : mode() === 'manual' ? 'Manual' : mode() === 'saved' ? 'Referencia anterior' : 'Automático';
   $('rate-badge').textContent = badge;
+  presentState({ ready, short, record: currentRecord(), manual: mode() === 'manual' });
   const value = mode() === 'manual' ? $('manual-rate').value.trim().replace(',', '.') : currentRecord()?.value;
-  summary = buildSummary({ ready, total: invalid ? null : total, currency: currency(), mxn: decimal($('received-mxn').value) ?? 0n, usd: decimal($('received-usd').value) ?? 0n, converted, rateDescription: `${badge} · 1 USD = $${value} MXN${currentRecord() && mode() !== 'manual' ? ` · referencia ${currentRecord().date} · consulta ${formatDate(currentRecord().fetchedAt)}` : ''}` });
+  summary = buildSummary({ ready, total: invalid ? null : total, currency: currency() === 'USD' && extra > 0n ? 'combined' : currency(), mxn: (currency() === 'USD' ? 0n : decimal($('received-mxn').value) ?? 0n) + extra, usd: decimal($('received-usd').value) ?? 0n, converted, rateDescription: `${badge} · 1 USD = $${value} MXN${currentRecord() && mode() !== 'manual' ? ` · referencia ${currentRecord().date} · consulta ${formatDate(currentRecord().fetchedAt)}` : ''}` });
   renderSummary(summary);
   $('rate-value').textContent = rate ? `1 USD = $${value} MXN` : loading && mode() === 'auto' ? 'Consultando…' : 'Tasa no disponible';
   $('rate-status').textContent = mode() === 'manual' ? rate ? 'Se está usando la tasa de tu negocio.' : 'Introduce una tasa manual válida mayor que cero.' : mode() === 'saved' ? rate ? 'Usas explícitamente una referencia anterior. No es una cotización actual.' : 'No hay una referencia anterior válida seleccionada.' : loading ? 'Consultando la cotización diaria…' : failure || (automatic ? 'Referencia diaria de Frankfurter. Puede corresponder al último día hábil.' : 'Actualiza la cotización o selecciona una tasa manual o anterior.');
   $('rate-status').classList.toggle('error', mode() === 'auto' && Boolean(failure));
+  if (frozen) {
+    $('rate-status').textContent = 'Tasa fijada al confirmar el efectivo de esta cuenta. No es una nueva consulta. Se conserva su fecha original hasta finalizar o descartar el movimiento.';
+    $('rate-status').classList.remove('error');
+  }
   $('rate-dates').textContent = [attempted && `Última consulta: ${formatDate(attempted)} (hora local).`, currentRecord() && `Consulta de esta tasa: ${formatDate(currentRecord().fetchedAt)}.\nFecha de referencia: ${currentRecord().date}.`, mode() === 'manual' && 'La tasa manual no tiene fecha de referencia de mercado.'].filter(Boolean).join('\n');
   $('payment-rate').hidden = !usd;
   $('payment-rate').textContent = `Tasa utilizada: ${badge}${rate ? ` · $${value} MXN por USD` : ' · no disponible'}${mode() === 'saved' && rate ? ` · referencia ${selectedSaved.date}, consultada ${formatDate(selectedSaved.fetchedAt)}` : ''}.`;
   $('saved-option').disabled = !saved;
   $('saved-info').textContent = saved ? `Referencia anterior guardada: $${saved.value} MXN por USD. Fecha de referencia: ${saved.date}. Consulta: ${formatDate(saved.fetchedAt)}. Para usarla, selecciona «Referencia anterior».` : 'No hay una referencia anterior guardada.';
   $('storage-status').textContent = storageIssue;
-  $('refresh').disabled = loading || !online();
+  $('refresh').disabled = loading || !online() || !!cashUI?.locked();
   $('connection').textContent = online() ? 'Con conexión' : 'Sin conexión · Cotizaciones automáticas no disponibles';
   $('connection').classList.toggle('offline', !online());
+  if (!restoringCash) cashUI?.update(readForm(), currentRecord());
 }
 async function refresh() {
-  if (loading || !online()) return;
+  if (loading || !online() || cashUI?.locked()) return;
   const id = ++requestId;
   loading = true;
   failure = '';
@@ -135,13 +149,14 @@ $('manual-rate').addEventListener('input', render);
 $('rate-mode').addEventListener('change', () => { selectedSaved = mode() === 'saved' && saved ? { ...saved } : null; render(); });
 document.querySelectorAll('input[name=currency]').forEach(input => input.addEventListener('change', () => { clearReceived(); render(); }));
 $('refresh').addEventListener('click', refresh);
-$('reset').addEventListener('click', () => { $('prices').replaceChildren(); clearReceived(); addPrice(); });
+$('reset').addEventListener('click', () => cashUI.newAccount());
 window.addEventListener('offline', () => {
   ++requestId; loading = false; automatic = null;
   failure = 'Sin conexión. Selecciona explícitamente una referencia anterior o introduce una tasa manual.';
   render();
 });
-window.addEventListener('online', () => { render(); refresh(); });
+window.addEventListener('online', () => { failure = ''; render(); refresh(); });
+setupUI();
 setupKeypad();
 $('copy-summary').addEventListener('click', async () => {
   if (!summary) return;
@@ -157,6 +172,19 @@ $('copy-summary').addEventListener('click', async () => {
     $('copy-status').textContent = 'El navegador no permitió copiar. Puedes copiar manualmente el texto seleccionado.';
   }
 });
-addPrice(false);
+function readForm() {
+  return { prices: [...$('prices').querySelectorAll('input')].map(input => input.value), mxn: $('received-mxn').value, usd: $('received-usd').value, currency: currency(), rateMode: mode(), manualRate: $('manual-rate').value };
+}
+function clearAccount() { $('prices').replaceChildren(); clearReceived(); addPrice(); }
+function restoreAccount(form) {
+  restoringCash = true; $('prices').replaceChildren();
+  for (const value of form.prices) { addPrice(false); $('prices').lastElementChild.querySelector('input').value = value; }
+  $('received-mxn').value = form.mxn; $('received-usd').value = form.usd;
+  document.querySelector('input[name=currency][value="'+form.currency+'"]').checked = true;
+  $('rate-mode').value = form.rateMode; $('manual-rate').value = form.manualRate;
+  if (form.rateMode === 'saved') selectedSaved = cashUI.lockContext()?.record || saved;
+}
+cashUI = createCashUI({ clear: clearAccount, render, restore: restoreAccount });
+restoringCash = true; addPrice(false); cashUI.restore(); restoringCash = false; render();
 if (online()) refresh();
 else { failure = 'Sin conexión. Selecciona explícitamente una referencia anterior o introduce una tasa manual.'; render(); }

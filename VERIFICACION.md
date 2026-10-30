@@ -17,3 +17,28 @@ Las pruebas no equivalen a revisión en todos los teléfonos o navegadores. v1.1
 - Actualización del worker desde v1.1 a v1.2 y de v1.2 a una versión de prueba; sin modificar archivos de producción. Se conserva una caché ajena.
 - Vistas emuladas 360/390/768/1280 px sin desbordamiento; botones de al menos 44 px. Captura móvil revisada visualmente.
 - La instalación y revisión táctil en un dispositivo físico quedan pendientes de prueba personal.
+
+## Verificación v1.3 en desarrollo
+
+Estado base confirmado remotamente: main y v1.2.0 en 5cecb17da1044e5aacbf72588754f9c973afa5ae, PR #2 fusionado. Sin cambios locales al crear feature/version-1.3.
+
+- 12 pruebas unitarias y 3 integrales aprobadas en Edge. Se mantienen las regresiones anteriores; solo se adaptan la apertura del resumen y el identificador del caché a la nueva presentación.
+- Prueba de invariancia: money.js, rates.js, rate-store.js, summary.js, pwa.js y editAmount coinciden con v1.2.0.
+- Contraste calculado mínimo de 4.5:1 para las combinaciones de texto comprobadas de la paleta oficial.
+- Apertura por campo o botón, Listo/Escape, conservación de valor, dos decimales, retroceso, limpieza, cambio MXN/USD y alternativa nativa (atributos y foco). Entrada física y billetes conservados.
+- Detalles y resumen inicialmente contraídos; botones con aria-controls/expanded; apertura por Enter/Espacio; resultado independiente visible. Fecha de referencia y errores críticos visibles sin abrir detalles.
+- Migración desde v1.2: espera de actualización conserva el cobro, aceptación activa los recursos nuevos y elimina la caché previa de esa ruta. Se mantienen regresiones desde v1.1 y actualización a un worker de prueba servido en memoria.
+- Recarga y operación offline con teclado, resumen y copia; reconexión; errores API visibles; referencia anterior explícita. Sin dependencias externas imprescindibles para interfaz.
+- Vistas emuladas 320/360/390/768/1280 px, sin desbordamiento; panel integrado en flujo, sin superposición sobre campo/resultado; foco visible y movimiento reducido. Capturas móvil/escritorio revisadas.
+
+Pendiente físico: comprobar supresión del teclado nativo, apertura voluntaria del teclado del dispositivo, comodidad con áreas seguras, instalación y actualización en Android/iOS. La emulación no sustituye esas pruebas.
+
+## v1.4 — Cambio inteligente (solo rama, sin publicar)
+
+Resultados finales: 35 pruebas unitarias aprobadas, 11 pruebas de navegador aprobadas y revisión sintáctica de los módulos JS/MJS. Se conservaron los siete casos iniciales del motor y las regresiones de la calculadora, teclado, resumen y PWA anteriores.
+
+Cobertura nueva: combinaciones/alternativas exactas, límites de búsqueda y cantidades, inventarios MXN/USD, conteo y corrección, ajustes con recepción física, devolución al cancelar, recibido/entregado atómico, no duplicación, persistencia/recarga, una sola reversión, jornadas, cierre sin registro completo y recuperación ante almacenamiento fallido.
+
+Se comprobó migración de PWA desde v1.3 y una actualización dentro de v1.4 con ajuste pendiente, sin cambiar los archivos del worker en disco para el test. Se mantiene el diseño Dark Fintech y solo se iluminan las tarjetas de denominaciones usadas.
+
+Informe y limitaciones: docs/informe-v1.4.md. No se publicó v1.4. Las pruebas en teléfono físico e integración móvil por HTTPS requieren autorización posterior y revisión con efectivo simulado.

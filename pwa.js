@@ -24,8 +24,12 @@ if ('serviceWorker' in navigator) {
         }
       });
     });
-    document.getElementById('apply-update').addEventListener('click', () => {
+    document.getElementById('apply-update').addEventListener('click', async () => {
       if (!registration.waiting) return;
+      const guard = { wait: [] };
+      document.dispatchEvent(new CustomEvent('before-app-update', { detail: guard }));
+      try { await Promise.all(guard.wait); }
+      catch { status.textContent = 'No se aplicó la actualización: resuelve el problema de guardado de la cuenta antes de recargar.'; return; }
       applying = true;
       registration.waiting.postMessage({ type: 'APPLY_UPDATE' });
     });

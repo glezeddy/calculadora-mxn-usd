@@ -1,65 +1,58 @@
-# Cuenta clara · versión 1.2 (desarrollo)
+# Cuenta clara · v1.4 — Cambio inteligente (sin publicar)
 
-Calculadora estática de cobros MXN/USD. Conserva precios dinámicos, total, pagos en una sola moneda, cambio y faltantes en pesos, tasa automática/manual y nueva cuenta. No registra ventas ni incluye inventario o usuarios.
+Continuación de la arquitectura HTML/CSS/JavaScript y diseño Dark Fintech de v1.3. Calcula cobros MXN/USD/combinado y cambio exclusivamente en MXN. Agrega inventario local de efectivo por denominación; no incluye catálogo, clientes ni historial de ventas.
 
-## Probar sin reemplazar la versión pública
+Trabajo autorizado exclusivamente en `feature/version-1.4-cambio-inteligente` del repositorio **de pruebas**. No modificar el repositorio oficial ni la rama v1.3, ni configurar Pages para publicar esta rama todavía.
 
-Esta versión pertenece a `feature/version-1.1`. No fusionar con `main` sin autorización. GitHub Pages continúa sirviendo `main`.
+## Revisar localmente
 
 ```sh
-git clone --branch feature/version-1.2 https://github.com/glezeddy/calculadora-mxn-usd.git
-cd calculadora-mxn-usd
+git clone --branch feature/version-1.4-cambio-inteligente https://github.com/glezeddy/calculadora-mxn-usd-pruebas.git
+cd calculadora-mxn-usd-pruebas
 npm ci
+npm test
+npm run test:browser
 npm run dev
 ```
 
-Abre http://localhost:4174/calculadora-mxn-usd/ en ese equipo. Este origen es independiente de la aplicación pública y reproduce la ruta de GitHub Pages. El servidor escucha únicamente en el equipo local. Requiere Node.js 20 o posterior. No abrir con `file://`.
+El servidor solo escucha en el equipo local. Abre la dirección HTTP que indique (ruta `/calculadora-mxn-usd/`). Si el puerto 4174 está ocupado, en PowerShell:
 
-## Mejoras
-
-- Pago combinado: campos independientes MXN y USD; dólares convertidos con la tasa activa. Un campo vacío equivale a cero en combinado, ambos vacíos no calculan. Las modalidades USD y combinado requieren tasa válida.
-- Billetes: MXN 20/50/100/200/500/1000 y USD 1/5/10/20/50/100. Cada pulsación suma solo en su moneda. Puedes editar o limpiar cada importe. Entradas inválidas no se reemplazan silenciosamente.
-- Última tasa automática válida guardada localmente con fecha de referencia y hora real de consulta. Nunca se activa desde almacenamiento sin elegir explícitamente «Referencia anterior». Se muestra como anterior incluso si es del mismo día. Las tasas manuales no se presentan como datos del mercado. No se almacena la operación.
-- PWA: manifest e iconos propios, aplicación sin conexión después de la primera carga completa y caché versionada limitada a su ruta. El botón Instalar aparece si el navegador ofrece esa opción; también puedes usar el menú del navegador. En iOS, Compartir → Añadir a pantalla de inicio. La instalación depende del navegador y requiere HTTPS o localhost.
-
-## Cálculos y cotizaciones
-
-Importes en centavos `BigInt`; hasta 10 dígitos enteros y 2 decimales, punto o coma decimal, sin separadores de miles. Tasas racionales hasta 10 decimales. USD recibido se convierte redondeando al centavo MXN más próximo, mitades hacia arriba; después se suma el recibido MXN. El total a cobrar en USD se redondea hacia arriba al centavo. Cambiar modalidad limpia el recibido; Nueva cuenta conserva modalidad y configuración de tasa durante la sesión.
-
-Fuente: https://frankfurter.dev/ — endpoint público `https://api.frankfurter.dev/v2/rate/USD/MXN`, sin claves, con CORS. Referencias diarias, no cotizaciones en tiempo real. Se validan par, valor positivo y fecha; respuestas automáticas mayores de siete días o futuras se rechazan. HTTP, JSON, red o timeout de 12 segundos invalidan la tasa automática. La tasa anterior solo se puede usar eligiéndola, con sus fechas visibles; puede ser antigua y no representa el mercado actual. Un fallo de almacenamiento se informa sin bloquear MXN ni la tasa manual.
-
-Al desconectarse se invalida la tasa automática; no se consulta mientras el navegador informa falta de conexión. Al reconectarse se intenta actualizar. Una tasa anterior seleccionada queda fija durante ese uso, aunque se consulte otra nueva en segundo plano. No se cachea la API en el service worker.
-
-## Actualizaciones de la PWA
-
-`sw.js` precarga atómicamente el conjunto de archivos de interfaz. En cada entrega se debe cambiar `VERSION` si cambia cualquiera de esos archivos. Una nueva versión espera sin alterar un cobro; el aviso permite aplicarla y recargar explícitamente (limpia la operación). También se activa al cerrar todas las pestañas anteriores. Al activarse elimina solo las cachés antiguas de esta aplicación y ruta. Se revisan actualizaciones al abrir, volver a la pestaña y recuperar conexión. No se recarga automáticamente durante un cobro.
-
-## Pruebas
-
-```sh
-npm test
-npx playwright install chromium
-npm run test:browser
+```powershell
+$env:PORT = '4176'
+npm run dev
 ```
 
-En Windows las pruebas usan Edge si existe en su ruta habitual; en otros entornos usan Chromium de Playwright. El ejecutor crea su propio servidor temporal, reproduce `/calculadora-mxn-usd/` y no modifica Pages ni el service worker del repositorio. Resultados de capturas en `test-results/` (excluido de Git).
+Requiere Node.js 20 o posterior. Las pruebas usan Edge en su ruta habitual de Windows o Chromium de Playwright; en otros equipos puede ser necesario `npx playwright install chromium`. No abrir `index.html` con `file://`.
 
-La prueba de actualización sirve temporalmente un worker `1.1.1-test` desde memoria y verifica espera, aplicación, limpieza de caché anterior y preservación de una caché ajena. No modifica archivos fuente. Las pruebas de API usan datos controlados; la consulta real se comprueba por separado.
+Las pruebas históricas obtienen los archivos anteriores mediante sus SHA, presentes en la ascendencia de esta rama; no requieren modificar o conectar el repositorio oficial ni crear etiquetas locales.
 
-## Publicación futura
+## Flujo de uso
 
-Solo tras autorización: fusionar la rama a `main`. Pages ya está configurado desde la raíz de `main`; no cambiar esa configuración para probar esta rama. Las rutas del manifest, módulos e iconos son relativas y el scope del worker permanece dentro de `/calculadora-mxn-usd/`.
+1. En Administrar y verificar mi efectivo, contar físicamente MXN y USD por separado y confirmar. Hacerlo antes de introducir el pago de una compra.
+2. Capturar precios/pago como en v1.3. Preparar cambio permite elegir modo general o disponibilidad verificada y seleccionar alternativas exactas. Solo las tarjetas usadas se resaltan en turquesa.
+3. Si no hay cambio exacto, revisar la sugerencia de adicional (máximo automático inicial $100, configurable) o introducir un adicional manual superior. Confirmar su dinero físico y denominaciones para aplicarlo.
+4. Registrar recibido conserva las denominaciones como pendientes. Al finalizar, confirmar el recibido y el cambio físico: se actualizan las dos monedas en un solo registro. El adicional se incluye una única vez.
+5. Si no se pueden completar las denominaciones, elegir Finalizar sin actualizar inventario. La moneda afectada queda pendiente de verificar; nunca se inventan piezas ni se redondea el cambio.
+6. Cancelar el adicional requiere su devolución física con las mismas denominaciones. Nueva cuenta advierte si hay dinero pendiente y ofrece confirmar, descartar o cancelar.
+7. Deshacer último movimiento requiere revertirlo físicamente. Un nuevo movimiento sustituye el único respaldo de deshacer. Conteos/correcciones y nueva jornada lo invalidan.
+8. Nueva jornada ofrece exactamente Comenzar en cero o Conservar efectivo anterior. Ninguna opción verifica el efectivo automáticamente.
 
-## Versión 1.2 en desarrollo
+## PWA, integridad y datos
 
-La rama `feature/version-1.2`, creada desde `main` v1.1, incorpora únicamente teclado numérico integrado y resumen del cobro con copia. No se debe fusionar a producción sin autorización.
+Los recursos nuevos están incluidos en el service worker `1.4.0-dev.1`. Una cuenta v1.4 y sus movimientos pendientes se recuperan al recargar o actualizar; la actualización se detiene ante problemas de guardado. La administración no depende de internet.
 
-El teclado aparece al seleccionar un precio o un importe recibido MXN/USD, dentro del flujo de ese campo y sin superposición. Incluye 0–9, punto, borrar último dígito/selección y limpiar. Edita la posición o selección actual, con hasta 10 dígitos enteros y 2 decimales. Se conserva el teclado físico, validación y billetes. La tasa manual conserva su entrada habitual de hasta 10 decimales.
+Se conserva un único estado de caja, la cuenta actual y un único movimiento reversible. No se acumulan ventas ni datos personales. Las operaciones no salen del navegador; la consulta de cotización solo solicita el par USD/MXN a Frankfurter.
 
-El resumen se recalcula con los mismos importes y redondeos de la operación actual. Muestra únicamente monedas aplicables, tasa y estado cuando corresponde. Entradas incompletas o inválidas deshabilitan la copia y retiran los resultados anteriores. No almacena ni envía la operación; el texto se escribe solo al portapapeles local cuando se pulsa Copiar resumen. Si el navegador lo bloquea, ofrece un cuadro de texto seleccionable para copiar manualmente. Funciona offline tras la primera carga completa.
+La disponibilidad solo se utiliza con moneda verificada y sin avisos de almacenamiento. Un fallo de escritura suspende sugerencias y ofrece reconciliación mediante conteo físico completo. Un estado corrupto nunca se convierte silenciosamente en cero. Usar una sola pestaña activa; otra pestaña que cambie la caja provoca una advertencia, no una sobrescritura.
 
-Caché PWA `1.2.0`: incluye `keypad.js` y `summary.js`. Las pruebas integrales incluyen migración real desde los archivos de la etiqueta `v1.1.0`, espera de actualización y limpieza de caché anterior.
+Los límites de búsqueda, cantidades y recuperación están documentados en [la especificación v1.4](docs/v1.4-cambio-inteligente.md). La disponibilidad física siempre depende del conteo y las confirmaciones del usuario; probar primero con efectivo simulado.
 
-Entorno de pruebas: https://glezeddy.github.io/calculadora-mxn-usd-pruebas/ (rama `feature/version-1.2` del repositorio de pruebas). La etiqueta `v1.1-pruebas` conserva exactamente el commit anterior `37f1fa0fdf971b27815d6be2dd5c98da814a4b32`; se puede recuperar configurando Pages de ese repositorio desde `feature/version-1.1`, que se conserva. No cambiar Pages del repositorio principal.
+## Pruebas y documentación
 
-Las pruebas v1.2 requieren disponer de la etiqueta `v1.1.0` (`git fetch origin --tags`). Ejecuta `npm test` y `npm run test:browser`. El servidor local sigue disponible con `npm run dev`.
+- `npm test`: incluye pruebas `.test.js` y `.test.mjs`, incluido el motor inicial de v1.4.
+- `npm run test:browser`: regresiones v1.3, flujos de efectivo, ajustes, persistencia, recuperación, offline y actualización real del worker en servidor local temporal.
+- `node scripts/review-v14.mjs`: genera capturas de revisión en `test-results/` (excluido de Git).
+- [Especificación y decisiones](docs/v1.4-cambio-inteligente.md).
+- [Informe final y revisión](docs/informe-v1.4.md).
+
+No se ha publicado v1.4 en ninguna URL. La aplicación pública de pruebas continúa en la rama v1.3. La publicación para revisión móvil por HTTPS requiere autorización posterior; localhost en este equipo no es una URL para el celular.

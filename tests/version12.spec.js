@@ -6,7 +6,7 @@ import {existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeout:120000},async()=>{
   let legacy=true;
-  const server=createServer((file,data)=>legacy?execFileSync('git',['show',`v1.1.0:${file}`]):data);
+  const server=createServer((file,data)=>legacy?execFileSync('git',['show',`626d3ae627bddfe24a32cb5723189bdd2bf168b0:${file}`]):data);
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
   const browser=await chromium.launch({headless:true,...(existsSync(edge)?{executablePath:edge}:{})});
@@ -20,6 +20,7 @@ test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeou
     legacy=false;await page.evaluate(async()=>{await(await navigator.serviceWorker.getRegistration()).update();});
     await page.locator('#pwa-update').waitFor({state:'visible'});await page.locator('#apply-update').click();
     await page.locator('#summary-title').waitFor();
+    await page.locator('#summary-toggle').click();
     await page.waitForFunction(async()=>!(await caches.keys()).some(k=>k.endsWith(':1.1.0')));
     const key=k=>page.locator(`#keypad button[data-key="${k}"]`).click();
     await page.locator('#prices input').focus();
@@ -45,12 +46,12 @@ test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeou
     await page.locator('#received-usd').press('End');await page.locator('#received-usd').press('0');
     assert.equal(await page.locator('#received-usd').inputValue(),'10');
     for(const width of [360,390,768,1280]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.ok(await page.locator('#keypad button').first().evaluate(e=>e.getBoundingClientRect().height>=44));await page.screenshot({path:`test-results/v12-${width}.png`,fullPage:true});}
-    await context.setOffline(true);await page.reload();await page.locator('#prices input').focus();for(const k of ['1','0'])await key(k);
+    await context.setOffline(true);await page.reload();await page.locator('#reset').click();await page.locator('#physical-discard').check();await page.getByRole('button',{name:'Descartar cuenta',exact:true}).click();await page.locator('#cash-dialog').waitFor({state:'hidden'});await page.locator('#prices input').focus();for(const k of ['1','0'])await key(k);
     await page.locator('#received-mxn').focus();for(const k of ['2','0'])await key(k);
-    await page.locator('#copy-summary').click();copied=await page.evaluate(()=>navigator.clipboard.readText());assert.match(copied,/Cambio a entregar: \$10.00 MXN/);
+    await page.locator('#summary-toggle').click();await page.locator('#copy-summary').click();copied=await page.evaluate(()=>navigator.clipboard.readText());assert.match(copied,/Cambio a entregar: \$10.00 MXN/);
     await page.evaluate(()=>{navigator.clipboard.writeText=async()=>{throw Error('Bloqueado');};});
     await page.locator('#copy-summary').click();assert.ok(await page.locator('#copy-text').isVisible());assert.match(await page.locator('#copy-text').inputValue(),/Pago completo/);
-    await page.locator('#reset').click();assert.ok(await page.locator('#copy-summary').isDisabled());assert.ok(await page.locator('#copy-fallback').isHidden());
+    await page.locator('#reset').click();await page.locator('#physical-discard').check();await page.getByRole('button',{name:'Descartar cuenta',exact:true}).click();await page.locator('#cash-dialog').waitFor({state:'hidden'});assert.ok(await page.locator('#copy-summary').isDisabled());assert.ok(await page.locator('#copy-fallback').isHidden());
     assert.deepEqual(errors,[]);
   }finally{await browser.close();await new Promise(r=>server.close(r));}
 });

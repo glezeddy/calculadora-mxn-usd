@@ -20,5 +20,5 @@ export function createServer(transform = (_file, data) => data) {
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 4174);
-  createServer().listen(port, '127.0.0.1', () => console.log(`Vista de prueba v1.1: http://localhost:${port}${BASE}`));
+  createServer().listen(port, '127.0.0.1', () => console.log(`Vista local v1.4 (sin publicar): http://localhost:${port}${BASE}`));
 }
