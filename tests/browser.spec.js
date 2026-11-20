@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { createServer, BASE } from '../scripts/server.js';
 import { existsSync } from 'node:fs';
+import {currentVersion,withVersion} from './pwa-helpers.js';
 test('interfaz, pagos, PWA offline y actualización real de caché', {timeout:120000}, async () => {
   let nextVersion = false;
-  const server = createServer((file,data) => nextVersion && file === 'sw.js' ? data.toString().replace("'1.4.0'", "'1.4.0-test'") : data);
+  const server = createServer((file,data) => nextVersion && file === 'sw.js' ? withVersion(data,currentVersion+'-test') : data);
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const edge='C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
   const browser=await chromium.launch({headless:true,...(existsSync(edge)?{executablePath:edge}:{})});
@@ -76,10 +77,10 @@ test('interfaz, pagos, PWA offline y actualización real de caché', {timeout:12
     await page.locator('#pwa-update').waitFor({state:'visible'});
     assert.equal(await page.locator('#change').textContent(),'$50.00 MXN');
     await page.locator('#apply-update').click();
-    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('1.4.0-test')) && !(await caches.keys()).some(k=>k.endsWith(':1.4.0')));
+    await page.waitForFunction(async version=> (await caches.keys()).some(k=>k.endsWith(':'+version+'-test')) && !(await caches.keys()).some(k=>k.endsWith(':'+version)),currentVersion);
     await page.waitForFunction(()=>document.querySelector('#prices input')?.value==='350');
     assert.ok((await page.evaluate(()=>caches.keys())).includes('unrelated-app'));
-    const cacheURLs=await page.evaluate(async()=>{const keys=await caches.keys();const c=await caches.open(keys.find(k=>k.endsWith('1.4.0-test')));return(await c.keys()).map(r=>r.url);});
+    const cacheURLs=await page.evaluate(async version=>{const keys=await caches.keys();const name=keys.find(k=>k.endsWith(':'+version+'-test'));if(!name)throw Error('Falta la caché actualizada');const c=await caches.open(name);return(await c.keys()).map(r=>r.url);},currentVersion);
     assert.ok(cacheURLs.every(u=>u.startsWith(url)));
     assert.ok(!cacheURLs.some(u=>u.includes('frankfurter')));
     assert.deepEqual(errors,[]);

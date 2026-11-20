@@ -4,6 +4,7 @@ import {chromium} from 'playwright';
 import {existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createServer,BASE} from '../scripts/server.js';
+import {currentVersion} from './pwa-helpers.js';
 
 test('publicación v1.4: actualización desde v1.2 conserva datos locales y separa la caja por ruta',{timeout:120000},async()=>{
  let legacy=true,apiCalls=0,releaseQuote;
@@ -76,7 +77,7 @@ test('publicación v1.4: actualización desde v1.2 conserva datos locales y sepa
   assert.ok(Object.values(state.cash.MXN.counts).every(n=>n===0));
   const manifest=await p.evaluate(async()=>(await fetch('./manifest.webmanifest')).json());
   assert.equal(manifest.short_name,'Cuenta clara');assert.equal(manifest.scope,'./');assert.equal(manifest.start_url,'./');
-  assert.ok((await p.evaluate(()=>caches.keys())).some(k=>k.endsWith(':1.4.0')));
+  assert.ok((await p.evaluate(()=>caches.keys())).some(k=>k.endsWith(':'+currentVersion)));
   assert.deepEqual(errors,[]);
  }finally{releaseQuote();await browser.close();await new Promise(r=>server.close(r));}
 });

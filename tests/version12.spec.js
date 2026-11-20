@@ -18,7 +18,9 @@ test('v1.2: teclado, resumen, copia offline y migración PWA desde v1.1',{timeou
     await page.goto(origin+BASE);await page.evaluate(()=>navigator.serviceWorker.ready);
     await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
     legacy=false;await page.evaluate(async()=>{await(await navigator.serviceWorker.getRegistration()).update();});
-    await page.locator('#pwa-update').waitFor({state:'visible'});await page.locator('#apply-update').click();
+    await page.locator('#pwa-update').waitFor({state:'visible'});
+    // El título también existe antes de actualizar; esperar la recarga real.
+    await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.locator('#apply-update').click()]);
     await page.locator('#summary-title').waitFor();
     await page.locator('#summary-toggle').click();
     await page.waitForFunction(async()=>!(await caches.keys()).some(k=>k.endsWith(':1.1.0')));

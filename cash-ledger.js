@@ -1,14 +1,20 @@
 import {initialCash,validateCash,verifyCash,newDay,applyMovement,undoMovement,finishWithoutInventory,normalizeCounts,emptyCounts,totalCounts,DENOMINATIONS,MAX_COUNT} from './change-engine.js';
 import {decimal,receivedMXN,rateFraction} from './money.js';
+import {emptySales,validateSales,addSale,undoLastSale,newSalesDay} from './sales-ledger.js';
 import {validSavedRate} from './rate-store.js';
 const clone=value=>JSON.parse(JSON.stringify(value));
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const blankPending=()=>({lock:null,received:null,extra:null});
-export function initialSession(){return {version:1,revision:0,cash:initialCash(),draft:null,pending:blankPending(),maxExtra:'100.00'};}
+export function initialSession(){return {version:1,revision:0,cash:initialCash(),draft:null,pending:blankPending(),maxExtra:'100.00',sales:emptySales(),saleUndo:null};}
 export function validateForm(form){
   if(!form||!Array.isArray(form.prices)||form.prices.length<1||form.prices.length>500||!['MXN','USD','combined'].includes(form.currency)||!['auto','manual','saved'].includes(form.rateMode))throw Error('Operación guardada inválida');
   const text=value=>{if(typeof value!=='string'||value.length>100)throw Error('Campo guardado inválido');return value;};
-  return {prices:form.prices.map(text),mxn:text(form.mxn),usd:text(form.usd),currency:form.currency,rateMode:form.rateMode,manualRate:text(form.manualRate)};
+  const cards={};for(const method of ['tdc','tdd']){
+    cards[method]=form[method]===undefined?'':text(form[method]);
+    const approved=method+'Approved';if(form[approved]!==undefined&&typeof form[approved]!=='boolean')throw Error('Confirmación de tarjeta inválida');
+    cards[approved]=form[approved]===true;
+  }
+  return {...cards,prices:form.prices.map(text),mxn:text(form.mxn),usd:text(form.usd),currency:form.currency,rateMode:form.rateMode,manualRate:text(form.manualRate)};
 }
 export function evaluate(form,record=null){
   form=validateForm(form);
@@ -16,16 +22,28 @@ export function evaluate(form,record=null){
   for(const value of form.prices){const n=decimal(value);if(value.trim()&&n===null)invalid=true;if(n!==null){hasPrice=true;total+=n;}}
   const validRecord=record&&validSavedRate(record)?clone(record):null;
   const rate=form.rateMode==='manual'?rateFraction(form.manualRate):validRecord&&rateFraction(validRecord.value);
-  const converted=receivedMXN(form.currency,form.mxn,form.usd,rate);
-  const ready=hasPrice&&!invalid&&converted!==null;
-  return {form,record:validRecord,ready,total,mxn:form.currency==='USD'?0n:decimal(form.mxn)||0n,usd:form.currency==='MXN'?0n:decimal(form.usd)||0n,converted,change:ready?converted-total:null};
+  const tdc=form.tdc.trim()?decimal(form.tdc):0n,tdd=form.tdd.trim()?decimal(form.tdd):0n;
+  const cardsValid=tdc!==null&&tdd!==null;
+  const cards=cardsValid?(form.tdcApproved?tdc:0n)+(form.tddApproved?tdd:0n):0n;
+  const cardsApproved=cardsValid&&(tdc===0n||form.tdcApproved)&&(tdd===0n||form.tddApproved)&&cards<=total;
+  const cashFree=(form.currency==='USD'||!form.mxn.trim()||decimal(form.mxn)===0n)&&(form.currency==='MXN'||!form.usd.trim()||decimal(form.usd)===0n);
+  const cashConverted=(tdc>0n||tdd>0n)&&cashFree?0n:receivedMXN(form.currency,form.mxn,form.usd,rate);
+  const converted=cashConverted===null||!cardsValid?null:cashConverted+cards;
+  const ready=hasPrice&&!invalid&&converted!==null&&cardsApproved;
+  return {form,record:validRecord,ready,total,tdc:tdc||0n,tdd:tdd||0n,cards,cardsApproved,cashConverted,mxn:form.currency==='USD'?0n:decimal(form.mxn)||0n,usd:form.currency==='MXN'?0n:decimal(form.usd)||0n,converted,change:ready?converted-total:null};
 }
 export function extraAmount(session){return session.pending.extra?BigInt(session.pending.extra.amount):0n;}
 export function isLocked(session){return !!session.pending.lock;}
-export function hasDraftMoney(session){const f=session.draft;return !!f && ((f.currency!=='USD'&&(decimal(f.mxn)||0n)>0n)||(f.currency!=='MXN'&&(decimal(f.usd)||0n)>0n));}
+export function hasDraftMoney(session){const f=session.draft;return !!f && ((f.currency!=='USD'&&(decimal(f.mxn)||0n)>0n)||(f.currency!=='MXN'&&(decimal(f.usd)||0n)>0n)||(decimal(f.tdc)||0n)>0n||(decimal(f.tdd)||0n)>0n);}
 export function validateSession(value){
   if(!value||value.version!==1||!Number.isSafeInteger(value.revision)||value.revision<0)throw Error('Estado persistente inválido');
-  const result={version:1,revision:value.revision,cash:validateCash(value.cash),draft:value.draft===null?null:validateForm(value.draft),pending:blankPending(),maxExtra:value.maxExtra};
+  const result={version:1,revision:value.revision,cash:validateCash(value.cash),draft:value.draft===null?null:validateForm(value.draft),pending:blankPending(),maxExtra:value.maxExtra,sales:value.sales===undefined?emptySales():validateSales(value.sales),saleUndo:null};
+  if(value.saleUndo!=null){
+    const last=result.sales.entries.at(-1);
+    if(!last||value.saleUndo.id!==last.id)throw Error('Venta reversible inválida');
+    const before=validateCash({version:1,...value.saleUndo.before});
+    result.saleUndo={id:last.id,before:{MXN:before.MXN,USD:before.USD}};
+  }
   if(decimal(result.maxExtra)===null)throw Error('Límite automático inválido');
   const p=value.pending;if(!p||!Object.hasOwn(p,'lock')||!Object.hasOwn(p,'received')||!Object.hasOwn(p,'extra'))throw Error('Movimiento pendiente inválido');
   if(p.lock){
@@ -63,6 +81,14 @@ export function availableCounts(state){
   return normalizeCounts('MXN',result);
 }
 const affected=(ctx,extra)=>['MXN','USD'].filter(cur=>cur==='MXN'?ctx.mxn+extra>0n||ctx.change+extra>0n:ctx.usd>0n);
+// El cambio en MXN reduce primero la aportación MXN; cualquier resto reduce USD.
+// Las tarjetas nunca generan cambio ni se incorporan a denominaciones físicas.
+export function saleParts(ctx){
+  if(!ctx.ready||ctx.total<=0n||ctx.change<0n)throw Error('Venta incompleta o tarjeta sin aprobar');
+  const cashNet=ctx.total-ctx.cards,usdEquivalent=ctx.cashConverted-ctx.mxn;
+  const cashUSD=usdEquivalent<cashNet?usdEquivalent:cashNet;
+  return {cashMXN:String(cashNet-cashUSD),cashUSD:String(cashUSD),tdc:String(ctx.tdc),tdd:String(ctx.tdd)};
+}
 export function reduceSession(input,action){
   const s=validateSession(input);
   switch(action.type){
@@ -74,10 +100,10 @@ export function reduceSession(input,action){
     case 'verify':
       if(isLocked(s)||hasDraftMoney(s))throw Error('Finaliza o descarta el movimiento pendiente antes de verificar');
       if(action.confirm!==true)throw Error('Confirma el conteo físico');
-      s.cash=verifyCash(s.cash,action.currency,action.counts);break;
+      s.cash=verifyCash(s.cash,action.currency,action.counts);s.saleUndo=null;break;
     case 'day':
       if(isLocked(s)||hasDraftMoney(s))throw Error('Resuelve primero el movimiento pendiente');
-      if(action.confirm!==true)throw Error('Confirma la nueva jornada');s.cash=newDay(s.cash,action.mode);break;
+      if(action.confirm!==true)throw Error('Confirma la nueva jornada');s.cash=newDay(s.cash,action.mode);s.sales=newSalesDay(s.sales);s.saleUndo=null;break;
     case 'receive':{
       if(s.pending.received)throw Error('El recibido ya fue confirmado para esta cuenta');
       const ctx=contextFor(s,action);const currencies=['MXN','USD'].filter(c=>c==='MXN'?ctx.mxn>0n:ctx.usd>0n);
@@ -100,12 +126,13 @@ export function reduceSession(input,action){
       s.pending=blankPending();s.draft=null;break;
     case 'finish':{
       const ctx=contextFor(s,action),extra=extraAmount(s),change=ctx.change+extra;
+      const before={MXN:clone(s.cash.MXN),USD:clone(s.cash.USD)};
       if(action.withoutInventory){
         if(action.confirm!==true)throw Error('Confirma finalización física sin actualizar inventario');
         s.cash=finishWithoutInventory(s.cash,affected(ctx,extra));
       }else{
         const received=s.pending.received||validateReceipt(ctx,action.received);
-        if(!s.pending.received&&action.receivedPhysical!==true)throw Error('Confirma denominaciones recibidas físicamente');
+        if(!s.pending.received&&(ctx.mxn>0n||ctx.usd>0n)&&action.receivedPhysical!==true)throw Error('Confirma denominaciones recibidas físicamente');
         const outgoing=normalizeCounts('MXN',action.dispensed);
         if(totalCounts('MXN',outgoing)!==change)throw Error('Las denominaciones entregadas no suman el cambio exacto');
         if(change>0n&&action.dispensedPhysical!==true)throw Error('Confirma el cambio entregado físicamente');
@@ -113,14 +140,28 @@ export function reduceSession(input,action){
         for(const d of DENOMINATIONS.MXN)incoming.MXN[d]+=s.pending.extra?.counts[d]||0;
         s.cash=applyMovement(s.cash,incoming,{MXN:outgoing});
       }
+      s.sales=addSale(s.sales,saleParts(ctx),String(ctx.total));
+      s.saleUndo={id:s.sales.entries.at(-1).id,before};
       s.pending=blankPending();s.draft=null;break;
     }
     case 'undo':
-      if(isLocked(s))throw Error('Resuelve el movimiento pendiente antes de deshacer');
-      if(action.confirm!==true)throw Error('Confirma reversión física del último movimiento');s.cash=undoMovement(s.cash);break;
+      if(isLocked(s)||hasDraftMoney(s))throw Error('Resuelve el movimiento pendiente antes de deshacer');
+      if(action.confirm!==true)throw Error('Confirma reversión física del último movimiento');if(s.saleUndo){
+        s.cash=validateCash({version:1,...s.saleUndo.before});s.sales=undoLastSale(s.sales);s.saleUndo=null;
+      }else s.cash=undoMovement(s.cash);break;
     case 'recover':
       if(action.confirm!==true)throw Error('Confirma que resolviste físicamente los movimientos y recontaste ambas monedas');
-      s.cash=verifyCash(verifyCash(s.cash,'MXN',action.counts?.MXN),'USD',action.counts?.USD);
+      if((action.failedFinish||action.failedUndo)&&action.expectedRevision!==undefined&&action.expectedRevision!==s.revision)throw Error('La jornada cambió después del fallo. Revisa la venta antes de recuperar');
+      if(action.failedUndo){
+        if(!s.saleUndo||s.saleUndo.id!==action.failedUndo||!['completed','returned'].includes(action.decision))throw Error('Revisa la venta y confirma el resultado de la reversión');
+        if(action.decision==='completed')s.sales=undoLastSale(s.sales);
+      }
+      if(action.failedFinish){
+        if(!['completed','returned'].includes(action.decision))throw Error('Indica si completaste o devolviste el cobro y las tarjetas');
+        const ctx=contextFor(s,{context:action.failedFinish});
+        if(action.decision==='completed')s.sales=addSale(s.sales,saleParts(ctx),String(ctx.total));
+      }
+      s.cash=verifyCash(verifyCash(s.cash,'MXN',action.counts?.MXN),'USD',action.counts?.USD);s.saleUndo=null;
       s.pending=blankPending();s.draft=null;break;
     default:throw Error('Acción inválida');
   }

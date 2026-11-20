@@ -1,3 +1,4 @@
+import {salesTotals} from './sales-ledger.js';
 import {CashStore,initialSession,evaluate,extraAmount,isLocked,availableCounts,hasDraftMoney,validateForm} from './cash-ledger.js';
 import {DENOMINATIONS,normalizeCounts,totalCounts,emptyCounts} from './change-engine.js';
 import {decimal,money,amountText} from './money.js';
@@ -45,16 +46,21 @@ export function createCashUI(hooks){
      $(`cash-status-${cur}`).textContent=blocked?'Disponibilidad suspendida':statusNames[s.cash[cur].status];$(`cash-status-${cur}`).dataset.status=blocked?'pending':s.cash[cur].status;
      $(`cash-total-${cur}`).textContent=blocked&&!store?'No disponible':money(totalCounts(cur,s.cash[cur].counts),cur);
    }
-   $('cash-undo').disabled=!!blocked||busy||!s.cash.lastMovement||locked;
+   const totals=salesTotals(s.sales),list=$('sales-totals');list.replaceChildren();
+   $('card-payments-total').textContent=money(totals.tdd+totals.tdc);
+   $('card-payments-tdd').textContent=money(totals.tdd);
+   $('card-payments-tdc').textContent=money(totals.tdc);
+   for(const [label,value]of [['Número de ventas',String(totals.count)],['Total vendido',money(totals.total)],['Efectivo MXN',money(totals.cashMXN)],['Efectivo USD en MXN',money(totals.cashUSD)],['Ventas TDD',money(totals.tdd)],['Ventas TDC',money(totals.tdc)]]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;list.append(dt,dd);}
+   $('cash-undo').disabled=!!blocked||busy||(!s.saleUndo&&!s.cash.lastMovement)||locked||hasDraftMoney(s);
    for(const id of ['cash-verify-mxn','cash-verify-usd','cash-day','cash-receive','cash-finish','cash-adjust'])$(id).disabled=!!blocked||busy;
-   $('cash-receive').disabled ||= !ctx?.ready||ctx.change<0n||!!s.pending.received;
-   $('cash-finish').disabled ||= !ctx?.ready||ctx.change+extraAmount(s)<0n;
-   $('cash-adjust').disabled ||= !ctx?.ready||ctx.change<0n||s.cash.MXN.status!=='verified'||!!s.pending.extra;
+   $('cash-receive').disabled ||= !(ctx?.mxn>0n||ctx?.usd>0n)||!ctx?.ready||ctx.change<0n||!!s.pending.received;
+   $('cash-finish').disabled ||= !(ctx?.total>0n)||!ctx?.ready||ctx.change+extraAmount(s)<0n;
+   $('cash-adjust').disabled ||= !(ctx?.mxn>0n||ctx?.usd>0n)||!ctx?.ready||ctx.change<0n||s.cash.MXN.status!=='verified'||!!s.pending.extra;
    $('cash-cancel-extra').hidden=!s.pending.extra;$('cash-cancel-extra').disabled=!!blocked||busy;
    $('cash-recover').hidden=!recovery;$('cash-recover').disabled=!store||busy;
    $('cash-banner').hidden=!locked;
    $('cash-banner').textContent=s.pending.extra?`Adicional recibido físicamente: ${money(extraAmount(s))}. Incluido una sola vez en el cambio. Inventario aún sin actualizar. La cuenta y la tasa quedan bloqueadas hasta finalizar o cancelar.`:locked?'Denominaciones recibidas confirmadas, pendientes de finalizar. La cuenta y la tasa están bloqueadas para evitar inconsistencias.':'';
-   const selector='#prices input, #prices button, #add, input[name=currency], #received-mxn, #received-usd, #mxn-bills button, #usd-bills button, #clear-mxn, #clear-usd, #manual-rate, #rate-mode, .received-box > .amount-control button';
+   const selector='#received-tdc, #received-tdd, #approved-tdc, #approved-tdd, #prices input, #prices button, #add, input[name=currency], #received-mxn, #received-usd, #mxn-bills button, #usd-bills button, #clear-mxn, #clear-usd, #manual-rate, #rate-mode, .received-box > .amount-control button';
    document.querySelectorAll(selector).forEach(e=>{e.disabled=locked;});
    if(locked){$('refresh').disabled=true;document.dispatchEvent(new Event('cash-lock'));}
    $('cash-limit').value=s.maxExtra;
@@ -99,7 +105,7 @@ export function createCashUI(hooks){
  async function perform(action,clear=false){
    if(blocked&&!(action.type==='recover'&&recovery&&store))throw Error(blocked);if(busy)throw Error('Espera a que termine la operación');busy=true;paint();
    try{await store.dispatch(action);if(action.type==='recover'){sessionStorage.removeItem(key+':recovery');recovery=null;blocked='';}if(clear){try{sessionStorage.removeItem(key+':capture');}catch{blocked='El movimiento sí quedó guardado, pero no se pudo limpiar la captura local. Revisa el efectivo antes de continuar.';}localDraft=null;localSerialized='';}transientMessage='';lastForm=JSON.stringify(store.state.draft);searchKey='';if(clear)hooks.clear();else hooks.render();paint();}
-   catch(e){if(e.code==='cash-storage-write'){recovery={type:action.type};try{sessionStorage.setItem(key+':recovery',JSON.stringify(recovery));}catch{}blocked='No se guardó el movimiento. No repitas entregas. Mantén esta pantalla y, después de resolver físicamente el cobro, usa Recuperar tras fallo para contar ambas monedas.';e.message=blocked;}throw e;}
+   catch(e){if(e.code==='cash-storage-write'){recovery={type:action.type,revision:store.state.revision,...(action.type==='undo'&&store.state.saleUndo?{failedUndo:store.state.saleUndo.id}:ctx?.ready&&hasDraftMoney(store.state)?{failedFinish:store.state.pending.lock||capture()}:{})};try{sessionStorage.setItem(key+':recovery',JSON.stringify(recovery));}catch{}blocked='No se guardó el movimiento. No repitas entregas. Mantén esta pantalla y, después de resolver físicamente el cobro, usa Recuperar tras fallo para contar ambas monedas.';e.message=blocked;}throw e;}
    finally{busy=false;paint();}
  }
  async function submit(panel,action,clear=false){
@@ -108,6 +114,13 @@ export function createCashUI(hooks){
    finally{dialogBusy=false;panel.actions.querySelectorAll('button').forEach(b=>b.disabled=false);}
  }
  const capture=()=>({form:ctx.form,record:ctx.record});
+ function captureMatches(stamp){
+   if(stamp===JSON.stringify([state().cash,state().pending,state().sales]))return true;
+   if(state().sales.nextId!==1)return false;
+   const pending=structuredClone(state().pending);
+   if(pending.lock)for(const key of ['tdc','tdd','tdcApproved','tddApproved'])delete pending.lock.form[key];
+   return stamp===JSON.stringify([state().cash,pending]);
+ }
  function verify(currency){
    if(isLocked(state())||hasDraftMoney(state())){error('Finaliza o descarta la cuenta con dinero recibido antes de verificar efectivo. Cuenta el fondo de caja antes de recibir el pago para no duplicarlo.');return;}
    const p=modal('Verificar mi efectivo · '+currency);paragraph(p.body,'Cuenta físicamente el efectivo. Los campos vacíos representan cero. Cancelar no cambia el inventario.');
@@ -137,16 +150,17 @@ export function createCashUI(hooks){
  function finalize(){
    if(!ctx?.ready||ctx.change+extraAmount(state())<0n){const message='Completa un pago suficiente y válido antes de finalizar. Cancela este diálogo para corregir la cuenta.';if(dialog.open&&$('cash-dialog-error'))$('cash-dialog-error').textContent=message;else error(message);return;}
    const context=capture(),p=modal('Finalizar cobro'),change=ctx.change+extraAmount(state());
+   paragraph(p.body,'Total de venta: '+money(ctx.total)+' · Efectivo MXN: '+money(ctx.mxn)+' · Efectivo USD: '+money(ctx.usd,'USD')+' · TDD aprobada: '+money(ctx.tdd)+' · TDC aprobada: '+money(ctx.tdc));
    paragraph(p.body,'Cambio que debes entregar: '+money(change)+'. El guardado de entradas y salidas será una sola operación.');
    const editors={};if(state().pending.received)paragraph(p.body,'Las denominaciones de la compra original ya están confirmadas. No se contabilizarán de nuevo.');
    else for(const cur of ['MXN','USD']){const expected=cur==='MXN'?ctx.mxn:ctx.usd;if(expected>0n){paragraph(p.body,'Recibido esperado: '+money(expected,cur));editors[cur]=countsEditor(p.body,cur,{},'Recibido');}}
    if(state().pending.extra)paragraph(p.body,'Adicional ya confirmado: '+money(extraAmount(state()))+'. Se incluirá una sola vez.');
-   const received=state().pending.received?null:checkbox(p.body,'Confirmo las denominaciones recibidas físicamente.','physical-final-received');
-   const outgoing=countsEditor(p.body,'MXN',selected,'Cambio entregado');
-   const delivered=checkbox(p.body,'Confirmo que entregué físicamente estas denominaciones de cambio.','physical-delivered');
-   paragraph(p.body,'Si faltan denominaciones o el efectivo no está verificado: completa el registro, o finaliza sin actualizar inventario y la moneda afectada quedará pendiente de verificar.');
-   p.actions.append(button('Completar y confirmar movimiento',()=>{try{submit(p,{type:'finish',context,received:{MXN:editors.MXN?.get()||{},USD:editors.USD?.get()||{}},receivedPhysical:received?.checked||false,dispensed:outgoing.get(),dispensedPhysical:delivered.checked},true);}catch(e){p.alert.textContent=e.message;}}));
-   p.actions.append(button('Finalizar sin actualizar inventario',()=>finishWithout(context),'secondary'));
+   const received=state().pending.received||!(ctx.mxn>0n||ctx.usd>0n)?null:checkbox(p.body,'Confirmo las denominaciones recibidas físicamente.','physical-final-received');
+   const outgoing=change>0n?countsEditor(p.body,'MXN',selected,'Cambio entregado'):null;
+   const delivered=change>0n?checkbox(p.body,'Confirmo que entregué físicamente estas denominaciones de cambio.','physical-delivered'):null;
+   if(ctx.mxn>0n||ctx.usd>0n||change>0n)paragraph(p.body,'Si faltan denominaciones o el efectivo no está verificado: completa el registro, o finaliza sin actualizar inventario y la moneda afectada quedará pendiente de verificar.');
+   p.actions.append(button('Completar y confirmar movimiento',()=>{try{submit(p,{type:'finish',context,received:{MXN:editors.MXN?.get()||{},USD:editors.USD?.get()||{}},receivedPhysical:received?.checked||false,dispensed:outgoing?.get()||{},dispensedPhysical:delivered?.checked||false},true);}catch(e){p.alert.textContent=e.message;}}));
+   if(ctx.mxn>0n||ctx.usd>0n||change>0n)p.actions.append(button('Finalizar sin actualizar inventario',()=>finishWithout(context),'secondary'));
  }
  function finishWithout(context){
    const p=modal('Finalizar sin actualizar inventario');paragraph(p.body,'No se sumarán ni restarán piezas. Las monedas afectadas quedarán pendientes de verificar y sus sugerencias de disponibilidad se suspenderán.');
@@ -157,30 +171,35 @@ export function createCashUI(hooks){
  function newAccount(){
    if(recovery){recover();return;}
    if(blocked&&!isLocked(state())){hooks.clear();return;}
-   const s=state(),hasMoney=ctx&&(ctx.mxn>0n||ctx.usd>0n)||isLocked(s);
+   const s=state(),hasMoney=ctx&&(ctx.mxn>0n||ctx.usd>0n||ctx.tdc>0n||ctx.tdd>0n)||isLocked(s);
    if(!hasMoney){perform({type:'discard'},true).catch(e=>error(e.message));return;}
    const p=modal('Nueva cuenta · Movimientos pendientes');paragraph(p.body,'Elige confirmar el cobro, descartar la cuenta o cancelar para seguir revisándola. Nada cambia al cancelar.');
-   const returned=checkbox(p.body,'No hubo movimiento físico, o ya devolví los importes recibidos (incluido cualquier adicional con sus mismas denominaciones).','physical-discard');
+   const returned=checkbox(p.body,'No hubo cobro, o ya devolví efectivo y adicionales y cancelé/devolví los cargos aprobados en la terminal.','physical-discard');
    p.actions.append(button('Confirmar / finalizar cobro',()=>finalize()));p.actions.append(button('Descartar cuenta',()=>{if(!returned.checked){p.alert.textContent='Confirma la situación física del efectivo antes de descartar.';return;}submit(p,{type:'discard',returned:true},true);},'secondary'));
  }
  function day(){
-   if(isLocked(state())||ctx&&(ctx.mxn>0n||ctx.usd>0n)){error('Resuelve los movimientos de la cuenta actual antes de comenzar otra jornada.');return;}
-   const p=modal('Nueva jornada');paragraph(p.body,'Ninguna opción marca el efectivo como verificado. Tendrás que contarlo físicamente de nuevo. Se invalida Deshacer último movimiento.');
+   if(isLocked(state())||ctx&&(ctx.mxn>0n||ctx.usd>0n||ctx.tdc>0n||ctx.tdd>0n)){error('Resuelve los movimientos de la cuenta actual antes de comenzar otra jornada.');return;}
+   const p=modal('Nueva jornada');paragraph(p.body,'El resumen de ventas comienza en cero. Ninguna opción marca el efectivo como verificado. Tendrás que contarlo físicamente de nuevo. Se invalida Deshacer último movimiento.');
    const options=document.createElement('fieldset');options.innerHTML='<legend>Cómo comenzar</legend><label class="physical-confirm"><input type="radio" name="cash-day-mode" value="zero" checked>Comenzar en cero</label><p class="metadata">Reiniciar cantidades y marcar el efectivo como no verificado.</p><label class="physical-confirm"><input type="radio" name="cash-day-mode" value="keep">Conservar efectivo anterior</label><p class="metadata">Mantener cantidades y exigir nueva verificación física.</p>';p.body.append(options);
    const confirmed=checkbox(p.body,'Confirmo iniciar una nueva jornada con la opción seleccionada.','physical-day');
    p.actions.append(button('Comenzar jornada',()=>submit(p,{type:'day',mode:options.querySelector('input:checked').value,confirm:confirmed.checked})));
  }
  function undo(){
-   const p=modal('Deshacer último movimiento');paragraph(p.body,'Antes de confirmar, revierte físicamente la entrada y salida del último movimiento. Se restaurarán ambas monedas y sus estados anteriores. No se puede deshacer un movimiento anterior a este.');
-   const before=state().cash.lastMovement?.before;
+   const p=modal('Deshacer último movimiento');paragraph(p.body,'Se anulará la venta correspondiente, si existe. Antes de confirmar, cancela o devuelve sus tarjetas en la terminal y revierte físicamente la entrada y salida del último movimiento. Se restaurarán ambas monedas y sus estados anteriores. No se puede deshacer un movimiento anterior a este.');
+   const before=state().saleUndo?.before||state().cash.lastMovement?.before;
    if(before)for(const cur of ['MXN','USD'])for(const d of DENOMINATIONS[cur]){const delta=before[cur].counts[d]-state().cash[cur].counts[d];if(delta)paragraph(p.body,`${cur} ${money(BigInt(d),cur)}: ${delta>0?'recuperar':'devolver'} ${Math.abs(delta)} piezas.`,'metadata');}
-   const confirmed=checkbox(p.body,'Confirmo que revertí físicamente el último movimiento.','physical-undo');p.actions.append(button('Deshacer movimiento confirmado',()=>submit(p,{type:'undo',confirm:confirmed.checked})));
+   const confirmed=checkbox(p.body,'Confirmo que revertí el efectivo y cancelé/devolví las tarjetas de la venta, si corresponde.','physical-undo');p.actions.append(button('Deshacer movimiento confirmado',()=>submit(p,{type:'undo',confirm:confirmed.checked})));
  }
  function recover(){
    const p=modal('Recuperar tras fallo de guardado');paragraph(p.body,'El intento no quedó confirmado digitalmente. Primero resuelve físicamente todos los cobros y adicionales pendientes: complétalos o devuélvelos sin repetir entregas. Después cuenta TODO el efectivo actual de ambas monedas. Estos conteos sustituyen lo registrado, descartan la cuenta pendiente y desactivan Deshacer; no se vuelve a sumar ni restar el intento fallido.');
+   let decision=null;
+   if(recovery?.failedFinish||recovery?.failedUndo){
+     paragraph(p.body,recovery.failedUndo?'Falló el guardado de Deshacer. Indica si completaste la devolución y cancelación de tarjetas, o si restableciste el cobro original.':'La cuenta todavía no tiene una venta confirmada. Indica si completaste TODO el cobro y el cambio, o si devolviste todos los pagos, antes de guardar el recuento. No repitas cargos en la terminal.');
+     decision=document.createElement('select');decision.id='recovery-decision';decision.innerHTML=recovery.failedUndo?'<option value="">Selecciona el resultado de la reversión</option><option value="completed">Reversión completada: efectivo devuelto y tarjetas canceladas/devueltas; anular venta</option><option value="returned">Se conserva la venta: cobro original y efectivo restablecidos</option>':'<option value="">Selecciona el resultado del cobro</option><option value="completed">Cobro completado: registrar la venta una sola vez</option><option value="returned">Cobro devuelto: efectivo devuelto y tarjetas canceladas/devueltas</option>';p.body.append(decision);
+   }
    const mxn=countsEditor(p.body,'MXN',{},'Recuento de recuperación'),usd=countsEditor(p.body,'USD',{},'Recuento de recuperación');
    const confirmed=checkbox(p.body,'Confirmo que resolví físicamente todos los movimientos pendientes y que conté todo el efectivo actual en MXN y USD.','physical-recovery');
-   p.actions.append(button('Confirmar recuento y recuperar',()=>{try{submit(p,{type:'recover',counts:{MXN:mxn.get(),USD:usd.get()},confirm:confirmed.checked},true);}catch(e){p.alert.textContent=e.message;}}));
+   p.actions.append(button('Confirmar recuento y recuperar',()=>{try{submit(p,{type:'recover',counts:{MXN:mxn.get(),USD:usd.get()},confirm:confirmed.checked,...((recovery?.failedFinish||recovery?.failedUndo)?{failedFinish:recovery.failedFinish,failedUndo:recovery.failedUndo,decision:decision.value,expectedRevision:recovery.revision}:{})},true);}catch(e){p.alert.textContent=e.message;}}));
  }
  $('cash-recover').addEventListener('click',recover);
  $('cash-verify-mxn').addEventListener('click',()=>verify('MXN'));$('cash-verify-usd').addEventListener('click',()=>verify('USD'));$('cash-day').addEventListener('click',day);$('cash-undo').addEventListener('click',undo);$('cash-receive').addEventListener('click',receipt);$('cash-finish').addEventListener('click',finalize);$('cash-adjust').addEventListener('click',adjust);$('cash-cancel-extra').addEventListener('click',cancelExtra);
@@ -189,13 +208,13 @@ export function createCashUI(hooks){
  $('cash-limit').addEventListener('change',()=>perform({type:'limit',value:$('cash-limit').value}).catch(e=>error(e.message)));
  window.addEventListener('storage',event=>{if(event.key===key){blocked='Otra pestaña modificó la jornada. Recarga antes de administrar efectivo; no se sobrescribirán sus cambios.';paint();}});
  document.addEventListener('before-app-update',event=>{event.detail.wait.push((store?.queue||Promise.resolve()).then(()=>{if(blocked)throw Error(blocked);}));});
- window.addEventListener('beforeunload',event=>{if(blocked&&ctx&&(ctx.mxn>0n||ctx.usd>0n)){event.preventDefault();event.returnValue='';}});
+ window.addEventListener('beforeunload',event=>{if(blocked&&ctx&&(ctx.mxn>0n||ctx.usd>0n||ctx.tdc>0n||ctx.tdd>0n)){event.preventDefault();event.returnValue='';}});
  return{
    state,locked:()=>isLocked(state()),lockContext:()=>state().pending.lock,extra:()=>extraAmount(state()),
-   restore(){const stamp=JSON.stringify([state().cash,state().pending]);const draft=isLocked(state())?state().draft:localDraft?.stamp===stamp?localDraft.form:state().draft;if(localDraft&&localDraft.stamp!==stamp&&!isLocked(state()))transientMessage='El efectivo cambió desde tu captura local. Se recuperó la cuenta compartida; no se mezclaron movimientos.';lastForm=JSON.stringify(state().draft);if(draft)hooks.restore(draft);paint();},
+   restore(){const matches=localDraft&&captureMatches(localDraft.stamp);const draft=isLocked(state())?state().draft:matches?localDraft.form:state().draft;if(localDraft&&!matches&&!isLocked(state()))transientMessage='El efectivo o las ventas cambiaron desde tu captura local. Se recuperó la cuenta compartida; no se mezclaron movimientos.';lastForm=JSON.stringify(state().draft);if(draft)hooks.restore(draft);paint();},
    update(form,record){
-     try{ctx=evaluate(form,record);}catch(e){ctx=null;error(e.message);paint();return;}
-     try{const capture={form,stamp:JSON.stringify([state().cash,state().pending])},raw=JSON.stringify(capture);if(raw!==localSerialized){sessionStorage.setItem(key+':capture',raw);localDraft=capture;localSerialized=raw;}}catch{blocked='No se puede guardar la captura inmediata. Administración suspendida; no cierres esta cuenta sin revisar el efectivo.';}
+     try{ctx=evaluate(form,record);form=ctx.form;}catch(e){ctx=null;error(e.message);paint();return;}
+     try{const capture={form,stamp:JSON.stringify([state().cash,state().pending,state().sales])},raw=JSON.stringify(capture);if(raw!==localSerialized){sessionStorage.setItem(key+':capture',raw);localDraft=capture;localSerialized=raw;}}catch{blocked='No se puede guardar la captura inmediata. Administración suspendida; no cierres esta cuenta sin revisar el efectivo.';}
      const json=JSON.stringify(form);if(json!==lastForm&&!blocked&&store){lastForm=json;store.dispatch({type:'draft',form}).then(()=>paint()).catch(e=>{blocked='No se guardó la operación: '+e.message;paint();});}
      paint();
    },newAccount,

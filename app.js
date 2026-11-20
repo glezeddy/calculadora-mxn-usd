@@ -1,3 +1,4 @@
+import {evaluate} from './cash-ledger.js';
 import { decimal, rateFraction, totalUSD, money, addBill, receivedMXN } from './money.js';
 import { fetchRate } from './rates.js';
 import { loadRate, saveRate } from './rate-store.js';
@@ -58,31 +59,36 @@ function render() {
   }
   $('price-error').textContent = invalid ? 'Revisa los precios: usa importes positivos o cero, con hasta 2 decimales y 10 dígitos enteros.' : '';
   $('total').textContent = invalid ? '—' : money(total);
+  const payment=evaluate(readForm(),currentRecord());
   const usd = currency() !== 'MXN';
   const rate = activeRate();
-  $('price-usd-value').textContent = invalid || !hasPrices || !rate ? '—' : money(totalUSD(total, rate), 'USD');
-  $('price-usd-note').textContent = !rate ? 'Configura una tasa válida en «03. Tipo de cambio» para consultar el equivalente.' : 'Referencia con la tasa seleccionada. El cargo real en USD de una tarjeta extranjera depende del banco emisor.';
+  const referenceUSD = $('price-usd-value');
+  const referenceNote = $('price-usd-note');
+  referenceUSD.textContent = invalid || !hasPrices || !rate ? '—' : money(totalUSD(total, rate), 'USD');
+  referenceNote.textContent = !rate ? 'Configura una tasa válida en «03. Tipo de cambio» para consultar el equivalente.' : 'Referencia calculada con la tasa seleccionada en «03. Tipo de cambio». El cargo real en USD de una tarjeta extranjera depende del banco emisor.';
   $('mxn-box').hidden = currency() === 'USD';
   $('usd-box').hidden = !usd;
   $('usd-total-box').hidden = currency() !== 'USD';
-  $('usd-total').textContent = invalid || !rate ? '—' : money(totalUSD(total, rate), 'USD');
+  $('usd-total').textContent = invalid || !rate ? '—' : money(totalUSD(total>payment.cards?total-payment.cards:0n, rate), 'USD');
   for (const name of ['mxn', 'usd']) {
     const input = $(`received-${name}`);
     const bad = input.value.trim() !== '' && decimal(input.value) === null;
     input.setAttribute('aria-invalid', String(bad));
     $(`${name}-error`).textContent = bad ? 'Escribe un importe positivo o cero, con hasta 2 decimales y 10 dígitos enteros.' : '';
   }
-  const baseConverted = receivedMXN(currency(), $('received-mxn').value, $('received-usd').value, rate);
+  const baseConverted = payment.converted;
+  $('card-error').textContent = !payment.cardsApproved ? 'Revisa los importes y confirma la aprobación de cada tarjeta. Las tarjetas no pueden superar el total de compra.' : '';
+  $('card-balance').textContent = payment.cards>0n ? 'Tarjetas aprobadas: '+money(payment.cards)+' · Saldo a cubrir en efectivo: '+money(total>payment.cards?total-payment.cards:0n) : '';
   const extra = cashUI?.extra() || 0n;
   const converted = baseConverted === null ? null : baseConverted + extra;
   $('converted').textContent = usd && converted !== null ? `${currency() === 'combined' ? 'Total recibido' : 'Equivale a'}: ${money(converted)}.` : '';
-  const ready = !invalid && hasPrices && converted !== null;
+  const ready = payment.ready;
   const difference = ready ? converted - total : null;
   const short = difference !== null && difference < 0n;
   $('change').parentElement.classList.toggle('short', short);
   $('change-label').textContent = short ? 'Falta por recibir en pesos' : 'Cambio en pesos';
   $('change').textContent = difference === null ? '—' : money(short ? -difference : difference);
-  $('change-note').textContent = invalid ? 'Corrige los precios para calcular el cambio.' : usd && !rate ? 'Se necesita un tipo de cambio válido para cobrar en USD.' : !ready ? 'Introduce los precios y el dinero recibido.' : short ? 'El dinero recibido no cubre la compra.' : 'Entrega este importe en pesos mexicanos.';
+  $('change-note').textContent = invalid ? 'Corrige los precios para calcular el cambio.' : usd && payment.usd>0n && !rate ? 'Se necesita un tipo de cambio válido para cobrar en USD.' : !ready ? 'Introduce los precios y el dinero recibido.' : short ? 'El dinero recibido no cubre la compra.' : 'Entrega este importe en pesos mexicanos.';
   $('manual-box').hidden = mode() !== 'manual';
   $('manual-rate').setAttribute('aria-invalid', String(mode() === 'manual' && !rate));
   const frozen = !!cashUI?.locked() && currency() !== 'MXN' && mode() !== 'manual';
@@ -91,6 +97,9 @@ function render() {
   presentState({ ready, short, record: currentRecord(), manual: mode() === 'manual' });
   const value = mode() === 'manual' ? $('manual-rate').value.trim().replace(',', '.') : currentRecord()?.value;
   summary = buildSummary({ ready, total: invalid ? null : total, currency: currency() === 'USD' && extra > 0n ? 'combined' : currency(), mxn: (currency() === 'USD' ? 0n : decimal($('received-mxn').value) ?? 0n) + extra, usd: decimal($('received-usd').value) ?? 0n, converted, rateDescription: `${badge} · 1 USD = $${value} MXN${currentRecord() && mode() !== 'manual' ? ` · referencia ${currentRecord().date} · consulta ${formatDate(currentRecord().fetchedAt)}` : ''}` });
+  if(summary)for(const method of ['tdd','tdc'])if(payment[method]>0n){
+    const row=['Tarjeta '+method.toUpperCase()+' aprobada',money(payment[method])];summary.rows.splice(summary.rows.length-3,0,row);summary.text=['Resumen del cobro',...summary.rows.map(([label,value])=>label+': '+value),'Información de la operación actual. No es un comprobante fiscal.'].join('\n');
+  }
   renderSummary(summary);
   $('rate-value').textContent = rate ? `1 USD = $${value} MXN` : loading && mode() === 'auto' ? 'Consultando…' : 'Tasa no disponible';
   $('rate-status').textContent = mode() === 'manual' ? rate ? 'Se está usando la tasa de tu negocio.' : 'Introduce una tasa manual válida mayor que cero.' : mode() === 'saved' ? rate ? 'Usas explícitamente una referencia anterior. No es una cotización actual.' : 'No hay una referencia anterior válida seleccionada.' : loading ? 'Consultando la cotización diaria…' : failure || (automatic ? 'Referencia diaria de Frankfurter. Puede corresponder al último día hábil.' : 'Actualiza la cotización o selecciona una tasa manual o anterior.');
@@ -146,6 +155,10 @@ for (const [name, bills] of [['mxn', [20, 50, 100, 200, 500, 1000]], ['usd', [1,
   input.addEventListener('input', render);
   $(`clear-${name}`).addEventListener('click', () => { input.value = ''; render(); input.focus(); });
 }
+for(const method of ['tdc','tdd']){
+  $('received-'+method).addEventListener('input',()=>{$('approved-'+method).checked=false;render();});
+  $('approved-'+method).addEventListener('change',render);
+}
 $('add').addEventListener('click', () => addPrice());
 $('manual-rate').addEventListener('input', render);
 $('rate-mode').addEventListener('change', () => { selectedSaved = mode() === 'saved' && saved ? { ...saved } : null; render(); });
@@ -175,12 +188,13 @@ $('copy-summary').addEventListener('click', async () => {
   }
 });
 function readForm() {
-  return { prices: [...$('prices').querySelectorAll('input')].map(input => input.value), mxn: $('received-mxn').value, usd: $('received-usd').value, currency: currency(), rateMode: mode(), manualRate: $('manual-rate').value };
+  return { prices: [...$('prices').querySelectorAll('input')].map(input => input.value), mxn: $('received-mxn').value, usd: $('received-usd').value, currency: currency(), rateMode: mode(), manualRate: $('manual-rate').value,tdc:$('received-tdc').value,tdd:$('received-tdd').value,tdcApproved:$('approved-tdc').checked,tddApproved:$('approved-tdd').checked };
 }
-function clearAccount() { $('prices').replaceChildren(); clearReceived(); addPrice(); }
+function clearAccount() { for(const method of ['tdc','tdd']){$('received-'+method).value='';$('approved-'+method).checked=false;} $('prices').replaceChildren(); clearReceived(); addPrice(); }
 function restoreAccount(form) {
   restoringCash = true; $('prices').replaceChildren();
   for (const value of form.prices) { addPrice(false); $('prices').lastElementChild.querySelector('input').value = value; }
+  for(const method of ['tdc','tdd']){$('received-'+method).value=form[method]||'';$('approved-'+method).checked=form[method+'Approved']===true;}
   $('received-mxn').value = form.mxn; $('received-usd').value = form.usd;
   document.querySelector('input[name=currency][value="'+form.currency+'"]').checked = true;
   $('rate-mode').value = form.rateMode; $('manual-rate').value = form.manualRate;

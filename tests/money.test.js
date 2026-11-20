@@ -42,8 +42,9 @@ test('API: acepta datos válidos y rechaza respuestas incompletas, antiguas o in
   await assert.rejects(fetchRate(async () => ({ok: true, json: async () => {throw new Error('JSON');}}), now));
 });
 
-test('equivalencia informativa en USD para cualquier modalidad de pago', () => {
+test('equivalente informativo USD: 350 MXN a 18 = 19.45 USD', () => {
   const rate = rateFraction('18');
   assert.equal(money(totalUSD(decimal('350'), rate), 'USD'), '$19.45 USD');
+  assert.equal(money(totalUSD(decimal('0'), rate), 'USD'), '$0.00 USD');
   assert.equal(totalUSD(decimal('350'), null), null);
 });
