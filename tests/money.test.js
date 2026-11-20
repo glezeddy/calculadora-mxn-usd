@@ -41,3 +41,9 @@ test('API: acepta datos válidos y rechaza respuestas incompletas, antiguas o in
   await assert.rejects(fetchRate(async () => ({ok: false}), now));
   await assert.rejects(fetchRate(async () => ({ok: true, json: async () => {throw new Error('JSON');}}), now));
 });
+
+test('equivalencia informativa en USD para cualquier modalidad de pago', () => {
+  const rate = rateFraction('18');
+  assert.equal(money(totalUSD(decimal('350'), rate), 'USD'), '$19.45 USD');
+  assert.equal(totalUSD(decimal('350'), null), null);
+});
